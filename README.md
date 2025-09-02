@@ -1,69 +1,101 @@
-# Cinema Times Scraper
+# 🎬 Cinema Times Scraper
 
-A simple Python-based cinema times scraper that runs on GitHub Actions and publishes results as JSON and iCal feeds.
+Automated cinema showings scraper with Rotten Tomatoes integration, featuring intelligent scheduling and calendar export.
 
-## Setup
+## 🌟 Features
 
-1. **Fork/clone this repository**
+- **Automated Scraping**: Scrapes The Light Cinema Sheffield every 6 hours
+- **RT Score Integration**: Fetches Rotten Tomatoes, Metacritic, and IMDb scores
+- **Smart Scheduling**: Optimized movie viewing schedules with minimal gaps
+- **Calendar Export**: Generate iCal files for importing into calendar apps
+- **Live Filtering**: Interactive web interface with real-time filtering
+- **Score Visualization**: Color-coded movie ratings and tooltips
 
-2. **Customize the scraper for your cinema:**
-   - Edit `scraper.py` - update the `cinema_url` and scraping logic in the `scrape_times()` method
-   - You'll need to inspect your cinema's website HTML and write CSS selectors to extract movie titles and times
+## 🚀 Live Site
 
-3. **Enable GitHub Pages:**
-   - Go to your repository Settings → Pages
-   - Set Source to "Deploy from a branch"
-   - Choose `main` branch and `/ (root)` folder
-   - Your site will be available at `https://yourusername.github.io/cinema-times/`
+Visit the live version at: `https://[username].github.io/cinema-times/`
 
-4. **The scraper will run automatically every 6 hours**, or you can trigger it manually:
-   - Go to Actions tab → "Scrape Cinema Times" workflow → "Run workflow"
+## 🔧 GitHub Actions Setup
 
-## Files
+1. **Enable GitHub Pages:**
+   - Go to repository Settings → Pages
+   - Source: **"GitHub Actions"** (not "Deploy from branch")
 
-- `scraper.py` - Main scraping script (customize this for your cinema)
-- `generate_ical.py` - Converts JSON to iCal format
-- `cinema-times.json` - Generated movie times (updated automatically)
-- `cinema-times.ics` - iCal feed for calendar apps (updated automatically)
-- `index.html` - Simple web viewer
-- `.github/workflows/scrape.yml` - GitHub Actions workflow
+2. **Add API Key Secret:**
+   - Go to Settings → Secrets and variables → Actions
+   - Add secret: `OMDB_API_KEY` = `your_omdb_key`
 
-## Usage
+3. **Automatic Deployment:**
+   - Scraper runs every 6 hours automatically
+   - Push to master triggers immediate deployment
+   - Manual trigger available in Actions tab
+
+## 📊 Data Sources
+
+- **Cinema Data**: The Light Cinema Sheffield
+- **Movie Ratings**: OMDb API (aggregates RT, Metacritic, IMDb)
+- **Scoring System**: Weighted composite (RT×3 + Metacritic×2 + IMDb×1)
+
+## 📱 Usage
 
 ### Web Interface
-Visit your GitHub Pages URL to see a simple web interface showing current movie times.
+- Browse all cinema showings with RT scores
+- Filter by movies and dates  
+- Generate custom viewing schedules
+- Export to calendar apps
+- Color-coded ratings with hover tooltips
+
+### Score Legend
+- 🟢 **80+**: Excellent (Fresh)
+- 🟡 **65+**: Good 
+- 🟠 **50+**: Fair
+- 🔴 **<50**: Poor
+- ⚫ **—**: No Score
 
 ### Calendar Subscription
 Add the iCal feed to your calendar app:
-- **URL**: `https://yourusername.github.io/cinema-times/cinema-times.ics`
+- **URL**: `https://[username].github.io/cinema-times/cinema-times.ics`
 - **iOS Calendar**: Settings → Calendar → Accounts → Add Account → Other → Add Subscribed Calendar
 - **Google Calendar**: Settings → Add calendar → From URL
-- **Outlook**: Calendar → Add calendar → Subscribe from web
 
-## Customization
+## 🛠 Development
 
-### Adding More Cinemas
-1. Modify `scraper.py` to handle multiple cinema URLs
-2. Update the JSON structure to include cinema information
-3. Adjust the HTML viewer to display multiple cinemas
-
-### Changing Update Frequency
-Edit `.github/workflows/scrape.yml` and modify the cron expression:
-- Every 3 hours: `0 */3 * * *`
-- Twice daily: `0 9,21 * * *`
-- Daily at 6 AM: `0 6 * * *`
-
-## Local Testing
-
+### Local Setup
 ```bash
-# Install dependencies
-pip install -r requirements.txt
+git clone https://github.com/[username]/cinema-times.git
+cd cinema-times
 
-# Test scraper
+# Install dependencies
+pip install requests beautifulsoup4
+
+# Set API key
+export OMDB_API_KEY=your_api_key_here
+
+# Run scraper with scores
 python scraper.py
 
-# Generate iCal
+# Generate calendar files
 python generate_ical.py
-
-# Open index.html in your browser to test the viewer
 ```
+
+### Manual Commands
+```bash
+# Scrape with scores
+python scraper.py --omdb-key your_key
+
+# Scrape without scores (faster)
+python scraper.py --no-scores
+
+# Get help
+python scraper.py --help
+```
+
+## 📁 Files Generated
+- `cinema-times.json` - Main data file with showings and scores
+- `cinema-times.ics` - iCal format for calendar import
+- `index.html` - Interactive web interface
+
+## 🔄 Update Frequency
+- **Automatic**: Every 6 hours via GitHub Actions
+- **Manual**: Trigger via GitHub Actions tab
+- **Development**: On every push to master

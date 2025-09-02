@@ -1866,6 +1866,9 @@
                     ' nema - sheffield:geo:53.377453,-1.473648'
                 ];
 
+                // Generate unique alarm UID
+                const alarmUid = `${uid}-alarm`;
+                
                 ical = ical.concat([
                     'BEGIN:VEVENT',
                     `UID:${uid}`,
@@ -1877,6 +1880,13 @@
                     `LOCATION:${location}`,
                     ...structuredLocationLines,
                     'TRANSP:OPAQUE',
+                    'BEGIN:VALARM',
+                    'ACTION:DISPLAY',
+                    'DESCRIPTION:Cinema Reminder - Time to leave!',
+                    'TRIGGER:-PT1H',
+                    `UID:${alarmUid}`,
+                    `X-WR-ALARMUID:${alarmUid}`,
+                    'END:VALARM',
                     'END:VEVENT'
                 ]);
             });

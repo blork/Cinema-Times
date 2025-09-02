@@ -79,10 +79,30 @@ class ICalGenerator:
         
         # Set basic event properties
         title = showing.get('title', 'Movie Showing')
+        
+        # Clean certificate from title (e.g., remove "(15)", "(PG)", "(12A)", etc.)
+        import re
+        title = re.sub(r'\s*\([UPG0-9A-Z]+\)\s*$', '', title).strip()
+        
         cinema = showing.get('cinema', 'Cinema')
         
         event.add('summary', f"{title} - {cinema}")
-        event.add('description', f"Movie: {title}\nCinema: {cinema}")
+        
+        # Create detailed description with proper line breaks
+        description_lines = [
+            f"Movie: {title}",
+            f"Cinema: {cinema}"
+        ]
+        
+        # Add additional details if available
+        if 'time' in showing:
+            description_lines.append(f"Showtime: {showing['time']}")
+        if 'screen' in showing:
+            description_lines.append(f"Screen: {showing['screen']}")
+        if 'duration' in showing:
+            description_lines.append(f"Duration: {showing['duration']}")
+        
+        event.add('description', "\n".join(description_lines))
         
         # Parse and set datetime
         date_str = showing.get('date', datetime.now().strftime('%Y-%m-%d'))
@@ -95,11 +115,16 @@ class ICalGenerator:
         end_datetime = start_datetime + timedelta(hours=2)
         event.add('dtend', end_datetime)
         
-        # Add location if available
-        if 'location' in showing:
-            event.add('location', showing['location'])
-        else:
-            event.add('location', cinema)
+        # Add location with full address for better mapping support
+        location = showing.get('location')
+        if not location:
+            # Use full address for The Light Cinema Sheffield for better map integration
+            if 'The Light Cinema Sheffield' in cinema:
+                location = "The Light Cinema Sheffield, The Moor, Sheffield S1 4PF, UK"
+            else:
+                location = cinema
+        
+        event.add('location', location)
         
         # Set other properties
         event.add('dtstamp', datetime.now())

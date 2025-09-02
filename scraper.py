@@ -18,12 +18,10 @@ try:
 except ImportError:
     # Fallback for Python < 3.9
     from datetime import timezone, timedelta as td
-    class ZoneInfo:
-        @staticmethod
-        def __call__(key):
-            if key == "Europe/London":
-                return timezone(td(hours=0))  # Simplified GMT
-            return timezone.utc
+    def ZoneInfo(key):
+        if key == "Europe/London":
+            return timezone(td(hours=0))  # Simplified GMT
+        return timezone.utc
 
 
 class CinemaScraper:

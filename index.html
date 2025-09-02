@@ -1067,7 +1067,7 @@
             console.log('Selected film indexes:', selectedFilmIndexes);
             console.log('Selected day indexes:', selectedDayIndexes);
 
-            // Get unique films data (sorted by RT score)
+            // Get unique films data (sorted by composite score)
             const uniqueFilmsData = [];
             const seenTitles = new Set();
             
@@ -1087,8 +1087,8 @@
             });
             
             uniqueFilmsData.sort((a, b) => {
-                if (a.rt_critics_score !== b.rt_critics_score) {
-                    return b.rt_critics_score - a.rt_critics_score;
+                if (a.composite_score !== b.composite_score) {
+                    return b.composite_score - a.composite_score;
                 }
                 return a.title.localeCompare(b.title);
             });
@@ -1426,7 +1426,7 @@
                 return;
             }
 
-            // Get unique films data (sorted by RT score)  
+            // Get unique films data (sorted by composite score)  
             const uniqueFilmsData = [];
             const seenTitles = new Set();
             
@@ -1446,8 +1446,8 @@
             });
             
             uniqueFilmsData.sort((a, b) => {
-                if (a.rt_critics_score !== b.rt_critics_score) {
-                    return b.rt_critics_score - a.rt_critics_score;
+                if (a.composite_score !== b.composite_score) {
+                    return b.composite_score - a.composite_score;
                 }
                 return a.title.localeCompare(b.title);
             });

@@ -1848,10 +1848,23 @@
                 // Escape special characters in text fields
                 const summary = event.title.replace(/[,;\\]/g, '\\$&').replace(/\n/g, '\\n');
                 const description = event.description.replace(/[,;\\]/g, '\\$&').replace(/\n/g, '\\n');
-                const location = event.location.replace(/[,;\\]/g, '\\$&').replace(/\n/g, '\\n');
                 
-                // Add structured location for better mapping support
-                const structuredLocationLine = 'X-APPLE-STRUCTURED-LOCATION;VALUE=URI;X-ADDRESS="The Moor, Sheffield, S1 4PF, England";X-TITLE=The Light Cinema Sheffield:geo:53.377453,-1.473648';
+                // Use exact LOCATION format from working example
+                const location = 'The Light Cinema - sheffield\\nThe Moor\\, Sheffield\\, S1 4PF\\, E\r\n ngland';
+                
+                // Use exact X-APPLE-STRUCTURED-LOCATION format with MapKit handle
+                const structuredLocationLines = [
+                    'X-APPLE-STRUCTURED-LOCATION;VALUE=URI;X-ADDRESS="The Moor, Sheffield, S1',
+                    '  4PF, England";X-APPLE-MAPKIT-HANDLE=CAES0wIIrk0QxM+WkOH29bKwARoSCcthnGR',
+                    ' QsEpAEZLKFHMQlPe/IoQBCg5Vbml0ZWQgS2luZ2RvbRICR0IaB0VuZ2xhbmQqCVNoZWZmaWV',
+                    ' sZDIJU2hlZmZpZWxkOgZTMSA0UEZCCFRoZSBNb29yUghUaGUgTW9vcmIIVGhlIE1vb3KKAQl',
+                    ' IaWdoZmllbGSKARFIZWFydCBvZiB0aGUgQ2l0eYoBCFRoZSBNb29yKhxUaGUgTGlnaHQgQ2l',
+                    ' uZW1hIC0gc2hlZmZpZWxkMghUaGUgTW9vcjIJU2hlZmZpZWxkMgZTMSA0UEYyB0VuZ2xhbmQ',
+                    ' 4L1ABWmAKKAjEz5aQ4fb1srABEhIJy2GcZFCwSkARksoUcxCU978Yrk2QAwGYAwGiHzMIxM+',
+                    ' WkOH29bKwARomChxUaGUgTGlnaHQgQ2luZW1hIC0gc2hlZmZpZWxkEAAqAmVuQAA=;X-APPL',
+                    ' E-RADIUS=141.1751618708053;X-APPLE-REFERENCEFRAME=0;X-TITLE=The Light Ci',
+                    ' nema - sheffield:geo:53.377453,-1.473648'
+                ];
 
                 ical = ical.concat([
                     'BEGIN:VEVENT',
@@ -1862,7 +1875,7 @@
                     `SUMMARY:${summary}`,
                     `DESCRIPTION:${description}`,
                     `LOCATION:${location}`,
-                    structuredLocationLine,
+                    ...structuredLocationLines,
                     'TRANSP:OPAQUE',
                     'END:VEVENT'
                 ]);

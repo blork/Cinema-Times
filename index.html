@@ -150,6 +150,139 @@
             border-radius: 4px;
             margin-bottom: 20px;
         }
+        .scheduler-panel {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .scheduler-section {
+            margin-bottom: 20px;
+        }
+        .scheduler-section h4 {
+            margin: 0 0 10px 0;
+            color: #333;
+            font-size: 16px;
+        }
+        .film-selection {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 8px;
+        }
+        .film-checkbox {
+            display: flex;
+            align-items: center;
+            background: #f8f9fa;
+            padding: 8px 12px;
+            border-radius: 4px;
+            border: 2px solid transparent;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        .film-checkbox:hover {
+            background: #e9ecef;
+        }
+        .film-checkbox.selected {
+            background: #e7f3ff;
+            border-color: #007AFF;
+        }
+        .film-checkbox input[type="checkbox"] {
+            margin-right: 8px;
+        }
+        .film-checkbox label {
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            flex-grow: 1;
+        }
+        .day-selection {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .day-checkbox {
+            display: flex;
+            align-items: center;
+            background: #f8f9fa;
+            padding: 6px 12px;
+            border-radius: 4px;
+            border: 2px solid transparent;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        .day-checkbox:hover {
+            background: #e9ecef;
+        }
+        .day-checkbox.selected {
+            background: #e7f3ff;
+            border-color: #007AFF;
+        }
+        .day-checkbox input[type="checkbox"] {
+            margin-right: 6px;
+        }
+        .day-checkbox label {
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+        }
+        .generate-schedule-btn {
+            background: #007AFF;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+        .generate-schedule-btn:hover {
+            background: #0056b3;
+        }
+        .generate-schedule-btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        .schedule-results {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border-left: 4px solid #007AFF;
+        }
+        .optimal-schedule {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 6px;
+            border: 1px solid #dee2e6;
+        }
+        .schedule-header {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        .schedule-day {
+            margin-bottom: 8px;
+        }
+        .schedule-day-label {
+            font-weight: 500;
+            color: #007AFF;
+            margin-bottom: 4px;
+        }
+        .schedule-films {
+            font-size: 14px;
+            color: #666;
+            margin-left: 10px;
+        }
+        .schedule-stats {
+            font-size: 12px;
+            color: #888;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #eee;
+        }
     </style>
 </head>
 <body>
@@ -158,9 +291,35 @@
         <div class="last-updated" id="lastUpdated">Loading...</div>
     </div>
 
-    <div class="week-summary" id="weekSummary" style="display: none;">
-        <h3>🎭 Films This Week</h3>
-        <div class="films-grid" id="filmsGrid"></div>
+
+    <div class="scheduler-panel" id="schedulerPanel" style="display: none;">
+        <h3>🎯 Custom Schedule Planner</h3>
+        <p style="font-size: 14px; color: #666; margin-bottom: 20px;">
+            Select films you want to see and choose which days you're available. We'll find the most efficient viewing schedules!
+        </p>
+        
+        <div class="scheduler-section">
+            <h4>📽️ Select Films</h4>
+            <div class="film-selection" id="filmSelection">
+                <!-- Film checkboxes will be populated here -->
+            </div>
+        </div>
+        
+        <div class="scheduler-section">
+            <h4>📅 Choose Days</h4>
+            <div class="day-selection" id="daySelection">
+                <!-- Day checkboxes will be populated here -->
+            </div>
+        </div>
+        
+        <div class="scheduler-section">
+            <button class="generate-schedule-btn" id="generateScheduleBtn" onclick="generateCustomSchedule()">
+                Generate Optimal Schedules
+            </button>
+            <div class="schedule-results" id="scheduleResults" style="display: none;">
+                <!-- Results will be populated here -->
+            </div>
+        </div>
     </div>
 
     <div class="calendar-links">
@@ -205,8 +364,8 @@
                 return;
             }
 
-            // Generate week summary
-            generateWeekSummary(data.showings);
+            // Populate scheduler panel
+            populateScheduler(data.showings);
 
             // Group showings by date first, then by movie
             const dateGroups = {};
@@ -573,6 +732,441 @@
             // First decode any HTML entities, then escape for safety
             const decoded = decodeHtmlEntities(text);
             return escapeHtml(decoded);
+        }
+
+        // Store showings data globally for scheduler
+        let allShowings = [];
+
+        function parseRuntime(runtime) {
+            if (!runtime || !runtime.toString().trim()) return 0;
+            
+            const runtimeStr = runtime.toString().toLowerCase();
+            let runtimeMinutes = 0;
+            
+            // Check for "1h 41m" format
+            const hourMinMatch = runtimeStr.match(/(\d+)h\s*(\d+)m/);
+            if (hourMinMatch) {
+                const hours = parseInt(hourMinMatch[1]);
+                const minutes = parseInt(hourMinMatch[2]);
+                runtimeMinutes = hours * 60 + minutes;
+            } else {
+                // Check for just hours "2h" format
+                const hourMatch = runtimeStr.match(/(\d+)h/);
+                if (hourMatch) {
+                    runtimeMinutes = parseInt(hourMatch[1]) * 60;
+                } else {
+                    // Check for just minutes "120m" or "120 mins" format
+                    const minMatch = runtimeStr.match(/(\d+)\s*m/);
+                    if (minMatch) {
+                        runtimeMinutes = parseInt(minMatch[1]);
+                    }
+                }
+            }
+            
+            // Add 20 minutes for trailers/adverts
+            if (runtimeMinutes > 0) {
+                runtimeMinutes += 20;
+            }
+            
+            return runtimeMinutes;
+        }
+
+        function populateScheduler(showings) {
+            allShowings = showings;
+            
+            // Get unique films and dates
+            const uniqueFilms = [...new Set(showings.map(s => s.title))].sort();
+            const uniqueDates = [...new Set(showings.map(s => s.date))].sort();
+
+            // Populate film selection
+            const filmSelection = document.getElementById('filmSelection');
+            filmSelection.innerHTML = uniqueFilms.map((film, index) => `
+                <div class="film-checkbox" onclick="toggleFilmCheckbox(${index})">
+                    <input type="checkbox" id="film-${index}" onchange="updateFilmSelection()">
+                    <label for="film-${index}">${safeDisplayText(film)}</label>
+                </div>
+            `).join('');
+
+            // Populate day selection
+            const daySelection = document.getElementById('daySelection');
+            daySelection.innerHTML = uniqueDates.map((date, index) => {
+                const dateDisplay = formatDate(date);
+                return `
+                    <div class="day-checkbox" onclick="toggleDayCheckbox(${index})">
+                        <input type="checkbox" id="day-${index}" onchange="updateDaySelection()">
+                        <label for="day-${index}">${dateDisplay}</label>
+                    </div>
+                `;
+            }).join('');
+
+            // Show the scheduler panel
+            document.getElementById('schedulerPanel').style.display = 'block';
+        }
+
+        function toggleFilmCheckbox(index) {
+            const checkbox = document.getElementById(`film-${index}`);
+            checkbox.checked = !checkbox.checked;
+            updateFilmSelection();
+        }
+
+        function toggleDayCheckbox(index) {
+            const checkbox = document.getElementById(`day-${index}`);
+            checkbox.checked = !checkbox.checked;
+            updateDaySelection();
+        }
+
+        function updateFilmSelection() {
+            document.querySelectorAll('.film-checkbox').forEach((div, index) => {
+                const checkbox = document.getElementById(`film-${index}`);
+                div.classList.toggle('selected', checkbox.checked);
+            });
+            updateGenerateButton();
+        }
+
+        function updateDaySelection() {
+            document.querySelectorAll('.day-checkbox').forEach((div, index) => {
+                const checkbox = document.getElementById(`day-${index}`);
+                div.classList.toggle('selected', checkbox.checked);
+            });
+            updateGenerateButton();
+        }
+
+        function updateGenerateButton() {
+            const selectedFilms = document.querySelectorAll('input[id^="film-"]:checked').length;
+            const selectedDays = document.querySelectorAll('input[id^="day-"]:checked').length;
+            const button = document.getElementById('generateScheduleBtn');
+            
+            button.disabled = selectedFilms < 2 || selectedDays < 1;
+            
+            if (button.disabled) {
+                button.textContent = selectedFilms < 2 ? 
+                    'Select at least 2 films' : 'Select at least 1 day';
+            } else {
+                button.textContent = `Generate Schedules (${selectedFilms} films, ${selectedDays} days)`;
+            }
+        }
+
+        function generateCustomSchedule() {
+            console.log('Generate custom schedule called');
+            
+            const selectedFilmIndexes = [];
+            const selectedDayIndexes = [];
+            
+            document.querySelectorAll('input[id^="film-"]:checked').forEach(checkbox => {
+                selectedFilmIndexes.push(parseInt(checkbox.id.split('-')[1]));
+            });
+            
+            document.querySelectorAll('input[id^="day-"]:checked').forEach(checkbox => {
+                selectedDayIndexes.push(parseInt(checkbox.id.split('-')[1]));
+            });
+
+            console.log('Selected film indexes:', selectedFilmIndexes);
+            console.log('Selected day indexes:', selectedDayIndexes);
+
+            const uniqueFilms = [...new Set(allShowings.map(s => s.title))].sort();
+            const uniqueDates = [...new Set(allShowings.map(s => s.date))].sort();
+            
+            const selectedFilms = selectedFilmIndexes.map(i => uniqueFilms[i]);
+            const selectedDates = selectedDayIndexes.map(i => uniqueDates[i]);
+
+            console.log('Selected films:', selectedFilms);
+            console.log('Selected dates:', selectedDates);
+
+            // Filter showings to only include selected films and dates
+            const relevantShowings = allShowings.filter(showing => 
+                selectedFilms.includes(showing.title) && selectedDates.includes(showing.date)
+            );
+
+            console.log('Relevant showings:', relevantShowings.length);
+
+            const schedules = findOptimalMultiDaySchedules(relevantShowings, selectedFilms, selectedDates);
+            console.log('Generated schedules:', schedules);
+            displayScheduleResults(schedules);
+        }
+
+        function findOptimalMultiDaySchedules(showings, selectedFilms, selectedDates) {
+            const singleDaySchedules = [];
+
+            // Group showings by date
+            const showingsByDate = {};
+            showings.forEach(showing => {
+                if (!showingsByDate[showing.date]) {
+                    showingsByDate[showing.date] = [];
+                }
+                showingsByDate[showing.date].push(showing);
+            });
+
+            // For each selected date, find optimal single-day schedules
+            selectedDates.forEach(date => {
+                const dayShowings = showingsByDate[date] || [];
+                const relevantShowings = dayShowings.filter(s => selectedFilms.includes(s.title));
+                
+                console.log(`Processing ${date}: ${relevantShowings.length} relevant showings`);
+                
+                if (relevantShowings.length < 2) {
+                    console.log(`Skipping ${date} - only ${relevantShowings.length} relevant showings`);
+                    return;
+                }
+
+                // Create movie groups in the format expected by generateOptimalSchedules
+                const movieGroups = {};
+                relevantShowings.forEach(showing => {
+                    if (!movieGroups[showing.title]) {
+                        movieGroups[showing.title] = [];
+                    }
+                    movieGroups[showing.title].push(showing);
+                });
+                
+                console.log(`${date} has ${Object.keys(movieGroups).length} different films`);
+                
+                if (Object.keys(movieGroups).length < 2) {
+                    console.log(`Skipping ${date} - only ${Object.keys(movieGroups).length} different films available`);
+                    return;
+                }
+
+                // Get all optimal schedules for this day
+                const daySchedules = generateOptimalSchedules(movieGroups);
+                
+                // Convert each valid schedule to our format
+                daySchedules.forEach((schedule, index) => {
+                    if (schedule.movies.length >= 2) {
+                        console.log('Processing schedule:', schedule);
+                        
+                        const totalTimeHours = schedule.gapMinutes / 60 + 
+                            schedule.showings.reduce((sum, showing) => sum + (parseRuntime(showing.runtime) / 60), 0);
+                        
+                        const dayResult = {
+                            date: date,
+                            dateDisplay: formatDate(date),
+                            films: schedule.showings.map(showing => ({
+                                title: showing.title,
+                                time: showing.startTime,
+                                endTime: showing.endTime,
+                                runtime: showing.runtime
+                            })),
+                            totalTime: totalTimeHours,
+                            downtime: schedule.gapMinutes,
+                            efficiency: schedule.movies.length / totalTimeHours
+                        };
+                        
+                        singleDaySchedules.push(dayResult);
+                        console.log(`Added schedule for ${date}: ${schedule.movies.length} films, ${totalTimeHours.toFixed(1)}h, ${schedule.gapMinutes}min gap`);
+                    }
+                });
+            });
+
+            // Sort by efficiency (more films in less time with less downtime is better)
+            return singleDaySchedules.sort((a, b) => {
+                // Primary: more films is better
+                if (a.films.length !== b.films.length) {
+                    return b.films.length - a.films.length;
+                }
+                // Secondary: less downtime is better
+                return a.downtime - b.downtime;
+            }).slice(0, 8); // Return top 8 single-day schedules
+        }
+
+        function generateFilmCombinations(films) {
+            const combinations = [];
+            
+            // Generate combinations of 2 to all films
+            for (let size = 2; size <= Math.min(films.length, 4); size++) {
+                const combos = getCombinations(films, size);
+                combinations.push(...combos);
+            }
+            
+            return combinations;
+        }
+
+        function getCombinations(arr, size) {
+            if (size > arr.length) return [];
+            if (size === 1) return arr.map(item => [item]);
+            
+            const combinations = [];
+            for (let i = 0; i <= arr.length - size; i++) {
+                const smallerCombinations = getCombinations(arr.slice(i + 1), size - 1);
+                smallerCombinations.forEach(combo => {
+                    combinations.push([arr[i], ...combo]);
+                });
+            }
+            return combinations;
+        }
+
+        function findBestScheduleForCombination(films, showingsByDate, selectedDates) {
+            const bestSchedule = {
+                films: films,
+                days: [],
+                totalFilms: 0,
+                totalHours: 0,
+                totalDowntime: 0,
+                efficiency: 0
+            };
+
+            // Try different strategies to fit the films across days
+            const strategies = [
+                () => packFilmsInMinimumDays(films, showingsByDate, selectedDates),
+                () => spreadFilmsAcrossDays(films, showingsByDate, selectedDates),
+                () => optimizeForMinimalDowntime(films, showingsByDate, selectedDates)
+            ];
+
+            let bestResult = null;
+            for (const strategy of strategies) {
+                const result = strategy();
+                if (result && result.totalFilms > (bestResult?.totalFilms || 0)) {
+                    bestResult = result;
+                }
+            }
+
+            return bestResult;
+        }
+
+        function packFilmsInMinimumDays(films, showingsByDate, selectedDates) {
+            console.log('packFilmsInMinimumDays called with:', films, Object.keys(showingsByDate), selectedDates);
+            
+            const schedule = { days: [], totalFilms: 0, totalHours: 0, totalDowntime: 0 };
+            const filmsToSchedule = [...films];
+
+            for (const date of selectedDates) {
+                if (filmsToSchedule.length === 0) break;
+                
+                const dayShowings = showingsByDate[date] || [];
+                const relevantShowings = dayShowings.filter(s => filmsToSchedule.includes(s.title));
+                
+                console.log(`Date ${date}: ${dayShowings.length} total showings, ${relevantShowings.length} relevant`);
+                
+                if (relevantShowings.length < 2) {
+                    console.log(`Skipping ${date} - only ${relevantShowings.length} relevant showings`);
+                    continue;
+                }
+
+                // Create movie groups in the format expected by generateOptimalSchedules
+                const movieGroups = {};
+                relevantShowings.forEach(showing => {
+                    if (!movieGroups[showing.title]) {
+                        movieGroups[showing.title] = [];
+                    }
+                    movieGroups[showing.title].push(showing);
+                });
+                
+                console.log(`Calling generateOptimalSchedules with ${Object.keys(movieGroups).length} movie groups`);
+                console.log('Movie groups structure:', Object.keys(movieGroups).map(title => `${title}: ${movieGroups[title].length} showings`));
+                
+                // Find optimal schedule for this day using the existing function
+                const daySchedules = generateOptimalSchedules(movieGroups);
+                const daySchedule = daySchedules.find(sched => sched.movies.length >= 2);
+
+                if (daySchedule) {
+                    console.log(`Found day schedule with ${daySchedule.movies.length} films`);
+                    
+                    const dayResult = {
+                        date: date,
+                        dateDisplay: formatDate(date),
+                        showings: daySchedule.movies.map(m => ({
+                            title: m.movies[0].title,
+                            time: m.time,
+                            endTime: m.endTime,
+                            runtime: m.movies[0].runtime
+                        })),
+                        totalTime: daySchedule.totalTime,
+                        downtime: daySchedule.downtime
+                    };
+
+                    schedule.days.push(dayResult);
+                    schedule.totalFilms += dayResult.showings.length;
+                    schedule.totalHours += parseFloat(daySchedule.totalTime);
+                    schedule.totalDowntime += parseFloat(daySchedule.downtime);
+
+                    // Remove scheduled films
+                    dayResult.showings.forEach(showing => {
+                        const index = filmsToSchedule.indexOf(showing.title);
+                        if (index > -1) filmsToSchedule.splice(index, 1);
+                    });
+                } else {
+                    console.log(`No valid day schedule found for ${date}`);
+                }
+            }
+
+            console.log('Final schedule:', schedule);
+            return schedule.totalFilms >= 2 ? schedule : null;
+        }
+
+        function spreadFilmsAcrossDays(films, showingsByDate, selectedDates) {
+            // Implementation for spreading films across available days
+            const schedule = { days: [], totalFilms: 0, totalHours: 0, totalDowntime: 0 };
+            
+            films.forEach(film => {
+                for (const date of selectedDates) {
+                    const dayShowings = showingsByDate[date] || [];
+                    const filmShowings = dayShowings.filter(s => s.title === film);
+                    
+                    if (filmShowings.length > 0) {
+                        // Find best time for this film on this day
+                        const bestShowing = filmShowings[0]; // Simplified: take first showing
+                        
+                        schedule.days.push({
+                            date: date,
+                            dateDisplay: formatDate(date),
+                            showings: [{
+                                title: film,
+                                time: bestShowing.time,
+                                endTime: calculateTimeRange(bestShowing.time, bestShowing.runtime).endTime,
+                                runtime: bestShowing.runtime
+                            }],
+                            totalTime: parseRuntime(bestShowing.runtime) / 60,
+                            downtime: 0
+                        });
+                        
+                        schedule.totalFilms++;
+                        schedule.totalHours += parseRuntime(bestShowing.runtime) / 60;
+                        break;
+                    }
+                }
+            });
+
+            return schedule.totalFilms >= 2 ? schedule : null;
+        }
+
+        function optimizeForMinimalDowntime(films, showingsByDate, selectedDates) {
+            // This would implement a more sophisticated algorithm
+            // For now, return the pack strategy result
+            return packFilmsInMinimumDays(films, showingsByDate, selectedDates);
+        }
+
+        function displayScheduleResults(schedules) {
+            const resultsContainer = document.getElementById('scheduleResults');
+            
+            if (schedules.length === 0) {
+                resultsContainer.innerHTML = `
+                    <div style="text-align: center; color: #666; padding: 20px;">
+                        <p>No optimal schedules found for the selected films and dates.</p>
+                        <p style="font-size: 12px;">Try selecting more days or different films that have overlapping showtimes.</p>
+                    </div>
+                `;
+            } else {
+                resultsContainer.innerHTML = `
+                    <h4 style="margin: 0 0 15px 0; color: #333;">🎯 ${schedules.length} Efficient Single-Day Option${schedules.length > 1 ? 's' : ''}</h4>
+                    ${schedules.map((schedule, index) => `
+                        <div class="optimal-schedule">
+                            <div class="schedule-header">
+                                ${schedule.dateDisplay}: ${schedule.films.length} films
+                                ${schedule.films.length >= 3 ? ' 🔥' : schedule.downtime <= 30 ? ' ⚡' : ''}
+                            </div>
+                            <div class="schedule-films">
+                                ${schedule.films.map(film => 
+                                    `${safeDisplayText(film.title)} (${film.time} - ${film.endTime})`
+                                ).join(' → ')}
+                            </div>
+                            <div class="schedule-stats">
+                                Total time: ${schedule.totalTime.toFixed(1)} hours • 
+                                Gap time: ${schedule.downtime.toFixed(0)} minutes • 
+                                Efficiency: ${schedule.efficiency.toFixed(1)} films/hour
+                            </div>
+                        </div>
+                    `).join('')}
+                `;
+            }
+            
+            resultsContainer.style.display = 'block';
         }
 
         // Load cinema times when page loads

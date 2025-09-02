@@ -682,18 +682,28 @@ def main():
     if omdb_api_key != 'skip':
         showings = fetch_and_add_rt_scores(showings, omdb_api_key)
     
-    # Detect new films before saving
+    # Detect new films before saving - need to clean old titles for fair comparison
     old_films = set()
     try:
         import json
         with open('cinema-times.json', 'r') as f:
             old_data = json.load(f)
-            old_films = set(showing.get('title', '') for showing in old_data.get('showings', []))
+            # Clean old titles the same way we clean new ones for accurate comparison
+            try:
+                from clean_titles import extract_title_and_tags
+                for showing in old_data.get('showings', []):
+                    original_title = showing.get('title', '')
+                    if original_title:
+                        clean_title, _ = extract_title_and_tags(original_title)
+                        old_films.add(clean_title)
+            except ImportError:
+                # Fallback if clean_titles not available
+                old_films = set(showing.get('title', '') for showing in old_data.get('showings', []))
     except (FileNotFoundError, json.JSONDecodeError):
         print("📄 No previous data found - this appears to be first run")
         old_films = set()
     
-    # Find new films
+    # Find new films (current films are already cleaned)
     current_films = set(s.get('title', '') for s in showings)
     new_films = current_films - old_films
     

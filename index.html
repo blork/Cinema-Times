@@ -487,6 +487,9 @@
             });
 
             content.innerHTML = html;
+            
+            // Store the original content for filtering
+            originalContent = html;
         }
 
         function formatDate(dateString) {
@@ -854,6 +857,7 @@
                 div.classList.toggle('selected', checkbox.checked);
             });
             updateGenerateButton();
+            applyFilters();
         }
 
         function updateDaySelection() {
@@ -862,6 +866,7 @@
                 div.classList.toggle('selected', checkbox.checked);
             });
             updateGenerateButton();
+            applyFilters();
         }
 
         function updateGenerateButton() {
@@ -1208,6 +1213,153 @@
 
         // Store schedules globally for calendar functions
         let currentSchedules = [];
+        
+        // Store original content for filtering
+        let originalContent = '';
+
+        function applyFilters() {
+            const selectedFilmIndexes = [];
+            const selectedDayIndexes = [];
+            
+            document.querySelectorAll('input[id^="film-"]:checked').forEach(checkbox => {
+                selectedFilmIndexes.push(parseInt(checkbox.id.split('-')[1]));
+            });
+            
+            document.querySelectorAll('input[id^="day-"]:checked').forEach(checkbox => {
+                selectedDayIndexes.push(parseInt(checkbox.id.split('-')[1]));
+            });
+
+            // If no filters selected, show all content
+            if (selectedFilmIndexes.length === 0 && selectedDayIndexes.length === 0) {
+                document.getElementById('content').innerHTML = originalContent;
+                return;
+            }
+
+            const uniqueFilms = [...new Set(allShowings.map(s => s.title))].sort();
+            const uniqueDates = [...new Set(allShowings.map(s => s.date))].sort();
+            
+            const selectedFilms = selectedFilmIndexes.map(i => uniqueFilms[i]);
+            const selectedDates = selectedDayIndexes.map(i => uniqueDates[i]);
+
+            // Filter the showings based on selections
+            let filteredShowings = allShowings;
+            
+            if (selectedFilms.length > 0) {
+                filteredShowings = filteredShowings.filter(showing => 
+                    selectedFilms.includes(showing.title)
+                );
+            }
+            
+            if (selectedDates.length > 0) {
+                filteredShowings = filteredShowings.filter(showing => 
+                    selectedDates.includes(showing.date)
+                );
+            }
+
+            // Regenerate the content with filtered data
+            displayFilteredContent(filteredShowings);
+        }
+
+        function displayFilteredContent(showings) {
+            if (showings.length === 0) {
+                document.getElementById('content').innerHTML = `
+                    <div style="text-align: center; color: #666; padding: 40px; background: white; border-radius: 8px; margin: 20px 0;">
+                        <h3>No showtimes match your selection</h3>
+                        <p>Try selecting different films or days, or clear your selections to see all showtimes.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // Group showings by date first, then by movie
+            const dateGroups = {};
+            showings.forEach(showing => {
+                const date = showing.date;
+                const dateDisplay = showing.date_display || formatDate(date);
+                
+                if (!dateGroups[date]) {
+                    dateGroups[date] = {
+                        display: dateDisplay,
+                        movies: {}
+                    };
+                }
+                
+                const title = showing.title;
+                if (!dateGroups[date].movies[title]) {
+                    dateGroups[date].movies[title] = [];
+                }
+                dateGroups[date].movies[title].push(showing);
+            });
+
+            // Generate HTML
+            let html = '';
+            const sortedDates = Object.keys(dateGroups).sort();
+            
+            sortedDates.forEach(date => {
+                const dateGroup = dateGroups[date];
+                html += `
+                    <div class="date-section">
+                        <h2 class="date-header">${escapeHtml(dateGroup.display)}</h2>
+                `;
+                
+                // Generate suggestions for this day if we have enough movies
+                const dayMovies = Object.keys(dateGroup.movies);
+                if (dayMovies.length >= 2) {
+                    const daySchedules = generateOptimalSchedules(dateGroup.movies);
+                    if (daySchedules.length > 0) {
+                        html += `
+                            <div class="schedule-suggestions">
+                                <h4>💡 Suggested schedules for this day</h4>
+                        `;
+                        
+                        daySchedules.slice(0, 3).forEach((schedule, index) => {
+                            html += `
+                                <div class="schedule-option">
+                                    <div class="schedule-movies">${schedule.movies.join(' → ')}</div>
+                                    <div class="schedule-times">${schedule.timeInfo}</div>
+                                    <div class="total-time">Total time: ${schedule.totalDuration} | Gap time: ${schedule.totalGap}</div>
+                                </div>
+                            `;
+                        });
+                        
+                        html += `</div>`;
+                    }
+                }
+                
+                // Sort movies alphabetically
+                const sortedTitles = Object.keys(dateGroup.movies).sort();
+                
+                sortedTitles.forEach(title => {
+                    const showings = dateGroup.movies[title];
+                    html += `
+                        <div class="movie">
+                            <div class="movie-title">${safeDisplayText(title)}</div>
+                            <div class="showtimes">
+                    `;
+                    
+                    // Sort showtimes chronologically
+                    const sortedShowings = showings.sort((a, b) => a.time.localeCompare(b.time));
+                    sortedShowings.forEach((showing, showingIndex) => {
+                        const timeRange = calculateTimeRange(showing.time, showing.runtime);
+                        const showingId = `${title.replace(/[^a-zA-Z0-9]/g, '')}-${showing.date}-${showing.time}`;
+                        html += `
+                            <span class="showtime" onclick="addShowingToCalendar('${showingId}', '${escapeHtml(title)}', '${showing.date}', '${showing.time}', '${showing.runtime || ''}', '${showing.cert || ''}')">
+                                ${escapeHtml(timeRange)}
+                            </span>
+                        `;
+                    });
+                    
+                    html += `
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += `</div>`;
+            });
+
+            document.getElementById('content').innerHTML = html;
+        }
 
         function addShowingToCalendar(showingId, title, date, time, runtime, cert) {
             const startDateTime = parseDateTime(date, time);

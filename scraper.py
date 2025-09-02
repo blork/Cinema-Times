@@ -505,7 +505,7 @@ class CinemaScraper:
     def save_json(self, showings: List[Dict[str, Any]], filename: str = 'cinema-times.json'):
         """Save showings to JSON file"""
         data = {
-            'last_updated': datetime.now(ZoneInfo("Europe/London")).strftime('%Y-%m-%d %H:%M:%S %Z'),
+            'last_updated': datetime.now(ZoneInfo("Europe/London")).isoformat(),
             'cinema': self.cinema_name,
             'showings': showings
         }

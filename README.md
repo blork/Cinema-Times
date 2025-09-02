@@ -52,11 +52,8 @@ Visit the live version at: `https://[username].github.io/cinema-times/`
 - 🔴 **<50**: Poor
 - ⚫ **—**: No Score
 
-### Calendar Subscription
-Add the iCal feed to your calendar app:
-- **URL**: `https://[username].github.io/cinema-times/cinema-times.ics`
-- **iOS Calendar**: Settings → Calendar → Accounts → Add Account → Other → Add Subscribed Calendar
-- **Google Calendar**: Settings → Add calendar → From URL
+### Calendar Export
+Use the individual "Add to Calendar" buttons on each movie showing to export specific events to your calendar app.
 
 ## 🛠 Development
 
@@ -73,9 +70,6 @@ export OMDB_API_KEY=your_api_key_here
 
 # Run scraper with scores
 python scraper.py
-
-# Generate calendar files
-python generate_ical.py
 ```
 
 ### Manual Commands
@@ -92,7 +86,6 @@ python scraper.py --help
 
 ## 📁 Files Generated
 - `cinema-times.json` - Main data file with showings and scores
-- `cinema-times.ics` - iCal format for calendar import
 - `index.html` - Interactive web interface
 
 ## 🔄 Update Frequency

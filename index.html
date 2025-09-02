@@ -1568,7 +1568,7 @@
                 start: startDateTime,
                 end: endDateTime,
                 location: 'The Light Cinema Sheffield, The Moor, Sheffield S1 4PF, UK',
-                description: `Movie: ${title}${runtime ? `\\nRuntime: ${runtime}` : ''}${cert ? `\\nCertificate: ${cert}` : ''}\\nVenue: The Light Cinema Sheffield`
+                description: `Movie: ${title}${runtime ? `\nRuntime: ${runtime}` : ''}${cert ? `\nCertificate: ${cert}` : ''}\nVenue: The Light Cinema Sheffield`
             };
             
             showCalendarOptions(event, `Add "${title}" to Calendar`);
@@ -1587,7 +1587,7 @@
                     start: startDateTime,
                     end: endDateTime,
                     location: 'The Light Cinema Sheffield, The Moor, Sheffield S1 4PF, UK',
-                    description: `Movie: ${film.title}${film.runtime ? `\\nRuntime: ${film.runtime}` : ''}\\nVenue: The Light Cinema Sheffield\\n\\nPart of optimized schedule: ${schedule.films.length} films with ${schedule.downtime}min gaps`
+                    description: `Movie: ${film.title}${film.runtime ? `\nRuntime: ${film.runtime}` : ''}\nVenue: The Light Cinema Sheffield\n\nPart of optimized schedule: ${schedule.films.length} films with ${schedule.downtime}min gaps`
                 };
             });
             

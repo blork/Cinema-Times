@@ -13,6 +13,17 @@ from typing import List, Dict, Any
 import sys
 import os
 import time
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    # Fallback for Python < 3.9
+    from datetime import timezone, timedelta as td
+    class ZoneInfo:
+        @staticmethod
+        def __call__(key):
+            if key == "Europe/London":
+                return timezone(td(hours=0))  # Simplified GMT
+            return timezone.utc
 
 
 class CinemaScraper:
@@ -496,7 +507,7 @@ class CinemaScraper:
     def save_json(self, showings: List[Dict[str, Any]], filename: str = 'cinema-times.json'):
         """Save showings to JSON file"""
         data = {
-            'last_updated': datetime.now().strftime('%Y-%m-%d %H:%M:%S UK'),
+            'last_updated': datetime.now(ZoneInfo("Europe/London")).strftime('%Y-%m-%d %H:%M:%S %Z'),
             'cinema': self.cinema_name,
             'showings': showings
         }

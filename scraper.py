@@ -682,14 +682,62 @@ def main():
     if omdb_api_key != 'skip':
         showings = fetch_and_add_rt_scores(showings, omdb_api_key)
     
+    # Detect new films before saving
+    old_films = set()
+    try:
+        import json
+        with open('cinema-times.json', 'r') as f:
+            old_data = json.load(f)
+            old_films = set(showing.get('title', '') for showing in old_data.get('showings', []))
+    except (FileNotFoundError, json.JSONDecodeError):
+        print("📄 No previous data found - this appears to be first run")
+        old_films = set()
+    
+    # Find new films
+    current_films = set(s.get('title', '') for s in showings)
+    new_films = current_films - old_films
+    
+    # Save the updated data
     scraper.save_json(showings)
     
     print(f"🎉 Scraping complete! Found {len(showings)} total showings")
     
-    # Show some statistics
-    unique_movies = len(set(s.get('title', '') for s in showings))
+    # Show statistics and new films
+    unique_movies = len(current_films)
     scored_movies = len(set(s.get('title', '') for s in showings if s.get('composite_score', 0) > 0))
     print(f"📊 {unique_movies} unique movies, {scored_movies} with scores")
+    
+    if new_films:
+        print(f"🆕 {len(new_films)} new films detected:")
+        for film in sorted(new_films):
+            # Get best composite score for this film
+            film_showings = [s for s in showings if s.get('title') == film]
+            best_score = max((s.get('composite_score', 0) for s in film_showings), default=0)
+            score_display = f" ({best_score}★)" if best_score > 0 else ""
+            print(f"   • {film}{score_display}")
+        
+        # Write new films summary for GitHub Actions
+        with open('new-films.txt', 'w') as f:
+            f.write(f"🎬 {len(new_films)} New Films at {cinema_name}:\n\n")
+            for film in sorted(new_films):
+                film_showings = [s for s in showings if s.get('title') == film]
+                best_score = max((s.get('composite_score', 0) for s in film_showings), default=0)
+                # Get showing dates
+                dates = sorted(set(s.get('date', '') for s in film_showings))
+                date_range = f"{dates[0]} to {dates[-1]}" if len(dates) > 1 else dates[0] if dates else "TBD"
+                
+                f.write(f"• {film}")
+                if best_score > 0:
+                    score_emoji = "🟢" if best_score >= 80 else "🟡" if best_score >= 65 else "🟠" if best_score >= 50 else "🔴"
+                    f.write(f" {score_emoji} {best_score}/100")
+                f.write(f"\n  📅 {date_range}\n\n")
+        
+        print("📧 New films summary written to new-films.txt for notifications")
+    else:
+        print("📽️ No new films detected since last run")
+        # Create empty file to indicate no new films
+        with open('new-films.txt', 'w') as f:
+            f.write("No new films detected in this update.\n")
 
 
 if __name__ == "__main__":

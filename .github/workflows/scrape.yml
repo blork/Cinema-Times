@@ -55,6 +55,23 @@ jobs:
         echo "Number of showings: $(jq '.showings | length' cinema-times.json)"
         echo "Unique movies: $(jq '.showings | map(.title) | unique | length' cinema-times.json)"
         echo "Last updated: $(jq -r '.last_updated' cinema-times.json)"
+        echo ""
+        echo "📬 New films notification:"
+        cat new-films.txt
+        
+    - name: Send new films notification email
+      if: ${{ hashFiles('new-films.txt') != '' }}
+      uses: dawidd6/action-send-mail@v3
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        secure: true
+        username: ${{ secrets.NOTIFICATION_EMAIL }}
+        password: ${{ secrets.NOTIFICATION_EMAIL_PASSWORD }}
+        subject: "🎬 New Films at The Light Cinema Sheffield"
+        to: ${{ secrets.NOTIFICATION_EMAIL }}
+        from: Cinema Times Bot <${{ secrets.NOTIFICATION_EMAIL }}>
+        body: file://new-films.txt
         
     - name: Setup Pages
       uses: actions/configure-pages@v4

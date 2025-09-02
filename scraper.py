@@ -444,10 +444,6 @@ class CinemaScraper:
                 # Fallback if no title found
                 if not title:
                     title = "Unknown Movie"
-                    # Debug: Print the problematic element text
-                    print(f"DEBUG - Unknown Movie found. Element text: '{full_text[:200]}...'")
-                    print(f"DEBUG - Element HTML snippet: '{str(element)[:300]}...'")
-                    print("---")
                 
                 # Clean up title
                 title = re.sub(r'\s+', ' ', title)  # Normalize whitespace

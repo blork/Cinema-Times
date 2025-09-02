@@ -1051,7 +1051,6 @@
         }
 
         function generateCustomSchedule() {
-            console.log('Generate custom schedule called');
             
             const selectedFilmIndexes = [];
             const selectedDayIndexes = [];
@@ -1064,8 +1063,6 @@
                 selectedDayIndexes.push(parseInt(checkbox.id.split('-')[1]));
             });
 
-            console.log('Selected film indexes:', selectedFilmIndexes);
-            console.log('Selected day indexes:', selectedDayIndexes);
 
             // Get unique films data (sorted by composite score)
             const uniqueFilmsData = [];
@@ -1098,18 +1095,12 @@
             const selectedFilms = selectedFilmIndexes.map(i => uniqueFilmsData[i].title);
             const selectedDates = selectedDayIndexes.map(i => uniqueDates[i]);
 
-            console.log('Selected films:', selectedFilms);
-            console.log('Selected dates:', selectedDates);
-
             // Filter showings to only include selected films and dates
             const relevantShowings = allShowings.filter(showing => 
                 selectedFilms.includes(showing.title) && selectedDates.includes(showing.date)
             );
 
-            console.log('Relevant showings:', relevantShowings.length);
-
             const schedules = findOptimalMultiDaySchedules(relevantShowings, selectedFilms, selectedDates);
-            console.log('Generated schedules:', schedules);
             currentSchedules = schedules;
             displayScheduleResults(schedules);
         }
@@ -1131,10 +1122,7 @@
                 const dayShowings = showingsByDate[date] || [];
                 const relevantShowings = dayShowings.filter(s => selectedFilms.includes(s.title));
                 
-                console.log(`Processing ${date}: ${relevantShowings.length} relevant showings`);
-                
                 if (relevantShowings.length < 2) {
-                    console.log(`Skipping ${date} - only ${relevantShowings.length} relevant showings`);
                     return;
                 }
 
@@ -1147,10 +1135,7 @@
                     movieGroups[showing.title].push(showing);
                 });
                 
-                console.log(`${date} has ${Object.keys(movieGroups).length} different films`);
-                
                 if (Object.keys(movieGroups).length < 2) {
-                    console.log(`Skipping ${date} - only ${Object.keys(movieGroups).length} different films available`);
                     return;
                 }
 
@@ -1160,7 +1145,6 @@
                 // Convert each valid schedule to our format
                 daySchedules.forEach((schedule, index) => {
                     if (schedule.movies.length >= 2) {
-                        console.log('Processing schedule:', schedule);
                         
                         const totalTimeHours = schedule.gapMinutes / 60 + 
                             schedule.showings.reduce((sum, showing) => sum + (parseRuntime(showing.runtime) / 60), 0);
@@ -1180,7 +1164,6 @@
                         };
                         
                         singleDaySchedules.push(dayResult);
-                        console.log(`Added schedule for ${date}: ${schedule.movies.length} films, ${totalTimeHours.toFixed(1)}h, ${schedule.gapMinutes}min gap`);
                     }
                 });
             });
@@ -1251,7 +1234,6 @@
         }
 
         function packFilmsInMinimumDays(films, showingsByDate, selectedDates) {
-            console.log('packFilmsInMinimumDays called with:', films, Object.keys(showingsByDate), selectedDates);
             
             const schedule = { days: [], totalFilms: 0, totalHours: 0, totalDowntime: 0 };
             const filmsToSchedule = [...films];
@@ -1262,10 +1244,7 @@
                 const dayShowings = showingsByDate[date] || [];
                 const relevantShowings = dayShowings.filter(s => filmsToSchedule.includes(s.title));
                 
-                console.log(`Date ${date}: ${dayShowings.length} total showings, ${relevantShowings.length} relevant`);
-                
                 if (relevantShowings.length < 2) {
-                    console.log(`Skipping ${date} - only ${relevantShowings.length} relevant showings`);
                     continue;
                 }
 
@@ -1278,15 +1257,12 @@
                     movieGroups[showing.title].push(showing);
                 });
                 
-                console.log(`Calling generateOptimalSchedules with ${Object.keys(movieGroups).length} movie groups`);
-                console.log('Movie groups structure:', Object.keys(movieGroups).map(title => `${title}: ${movieGroups[title].length} showings`));
                 
                 // Find optimal schedule for this day using the existing function
                 const daySchedules = generateOptimalSchedules(movieGroups);
                 const daySchedule = daySchedules.find(sched => sched.movies.length >= 2);
 
                 if (daySchedule) {
-                    console.log(`Found day schedule with ${daySchedule.movies.length} films`);
                     
                     const dayResult = {
                         date: date,
@@ -1312,11 +1288,9 @@
                         if (index > -1) filmsToSchedule.splice(index, 1);
                     });
                 } else {
-                    console.log(`No valid day schedule found for ${date}`);
                 }
             }
 
-            console.log('Final schedule:', schedule);
             return schedule.totalFilms >= 2 ? schedule : null;
         }
 
@@ -1888,41 +1862,8 @@
             return `${year}${month}${day}T${hours}${minutes}${seconds}`;
         }
 
-        // Debug function to check data
-        function debugScores() {
-            console.log('=== DEBUG: Checking movie data ===');
-            if (window.allShowings && window.allShowings.length > 0) {
-                const sample = window.allShowings[0];
-                console.log('Sample showing:', sample);
-                console.log('Available fields:', Object.keys(sample));
-                
-                // Check unique titles with scores
-                const uniqueTitles = {};
-                window.allShowings.forEach(showing => {
-                    const title = showing.title;
-                    if (!uniqueTitles[title]) {
-                        uniqueTitles[title] = {
-                            composite_score: showing.composite_score || 0,
-                            rt_critics_score: showing.rt_critics_score || 0,
-                            metacritic_score: showing.metacritic_score || 0,
-                            imdb_score: showing.imdb_score || 0
-                        };
-                    }
-                });
-                
-                const withScores = Object.entries(uniqueTitles).filter(([_, scores]) => scores.composite_score > 0);
-                console.log(`Movies with scores: ${withScores.length}`);
-                console.log('Sample scored movies:', withScores.slice(0, 3));
-            } else {
-                console.log('No allShowings data available');
-            }
-        }
-
         // Load cinema times when page loads
         document.addEventListener('DOMContentLoaded', loadCinemaTimes);
-        
-        // Auto-debug after a delay
-        setTimeout(debugScores, 2000);
     </script>
 </body>
 </html>

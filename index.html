@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cinema Times</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .last-updated {
+            color: #666;
+            font-size: 14px;
+        }
+        .date-section {
+            margin-bottom: 40px;
+        }
+        .date-header {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #007AFF;
+        }
+        .schedule-suggestions {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 25px;
+            border-left: 4px solid #28a745;
+        }
+        .schedule-suggestions h4 {
+            margin: 0 0 10px 0;
+            color: #28a745;
+            font-size: 16px;
+        }
+        .schedule-option {
+            background: white;
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 6px;
+            border: 1px solid #dee2e6;
+        }
+        .schedule-movies {
+            font-weight: 500;
+            margin-bottom: 5px;
+        }
+        .schedule-times {
+            font-size: 14px;
+            color: #666;
+        }
+        .total-time {
+            font-size: 12px;
+            color: #888;
+            margin-top: 5px;
+        }
+        .movie {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .movie-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .showtimes {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .showtime {
+            background: #007AFF;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        .week-summary {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .week-summary h3 {
+            color: #333;
+            margin: 0 0 15px 0;
+            font-size: 18px;
+        }
+        .films-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 10px;
+        }
+        .film-item {
+            background: #f8f9fa;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 14px;
+            border-left: 3px solid #007AFF;
+        }
+        .calendar-links {
+            text-align: center;
+            margin: 30px 0;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .calendar-link {
+            display: inline-block;
+            background: #28a745;
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            margin: 5px;
+            font-weight: 500;
+        }
+        .calendar-link:hover {
+            background: #218838;
+        }
+        .loading {
+            text-align: center;
+            color: #666;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎬 Cinema Times</h1>
+        <div class="last-updated" id="lastUpdated">Loading...</div>
+    </div>
+
+    <div class="week-summary" id="weekSummary" style="display: none;">
+        <h3>🎭 Films This Week</h3>
+        <div class="films-grid" id="filmsGrid"></div>
+    </div>
+
+    <div class="calendar-links">
+        <h3>Subscribe to Calendar</h3>
+        <a href="cinema-times.ics" class="calendar-link" download>📅 Download iCal</a>
+        <p style="margin-top: 10px; font-size: 14px; color: #666;">
+            Add this to your calendar app to get automatic updates
+        </p>
+    </div>
+
+    <div id="content">
+        <div class="loading">Loading cinema times...</div>
+    </div>
+
+    <script>
+        async function loadCinemaTimes() {
+            try {
+                const response = await fetch('cinema-times.json');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                
+                displayCinemaTimes(data);
+            } catch (error) {
+                console.error('Error loading cinema times:', error);
+                document.getElementById('content').innerHTML = 
+                    '<div class="error">Error loading cinema times. Please try again later.</div>';
+            }
+        }
+
+        function displayCinemaTimes(data) {
+            // Update last updated time
+            const lastUpdated = new Date(data.last_updated);
+            document.getElementById('lastUpdated').textContent = 
+                `Last updated: ${lastUpdated.toLocaleString()}`;
+
+            const content = document.getElementById('content');
+            
+            if (!data.showings || data.showings.length === 0) {
+                content.innerHTML = '<div class="loading">No showtimes available at the moment.</div>';
+                return;
+            }
+
+            // Generate week summary
+            generateWeekSummary(data.showings);
+
+            // Group showings by date first, then by movie
+            const dateGroups = {};
+            data.showings.forEach(showing => {
+                const date = showing.date;
+                const dateDisplay = showing.date_display || formatDate(date);
+                
+                if (!dateGroups[date]) {
+                    dateGroups[date] = {
+                        display: dateDisplay,
+                        movies: {}
+                    };
+                }
+                
+                const title = showing.title;
+                if (!dateGroups[date].movies[title]) {
+                    dateGroups[date].movies[title] = [];
+                }
+                dateGroups[date].movies[title].push(showing);
+            });
+
+            // Sort dates chronologically
+            const sortedDates = Object.keys(dateGroups).sort();
+            
+            // Generate HTML grouped by date
+            let html = '';
+            sortedDates.forEach(date => {
+                const dateInfo = dateGroups[date];
+                
+                // Generate schedule suggestions for this date
+                const schedules = generateOptimalSchedules(dateInfo.movies);
+                
+                html += `
+                    <div class="date-section">
+                        <div class="date-header">${safeDisplayText(dateInfo.display)}</div>
+                `;
+                
+                // Add schedule suggestions if any found
+                if (schedules.length > 0) {
+                    html += `
+                        <div class="schedule-suggestions">
+                            <h4>🎬 Suggested Multi-Film Schedules</h4>
+                    `;
+                    
+                    schedules.forEach((schedule, index) => {
+                        if (index < 5) { // Limit to top 5 suggestions
+                            html += `
+                                <div class="schedule-option">
+                                    <div class="schedule-movies">${schedule.movies.join(' → ')}</div>
+                                    <div class="schedule-times">${schedule.timeInfo}</div>
+                                    <div class="total-time">Total time: ${schedule.totalDuration} | Gap time: ${schedule.totalGap}</div>
+                                </div>
+                            `;
+                        }
+                    });
+                    
+                    html += `</div>`;
+                }
+                
+                html += '';
+                
+                // Sort movies alphabetically within each date
+                const sortedMovies = Object.keys(dateInfo.movies).sort();
+                sortedMovies.forEach(title => {
+                    const showings = dateInfo.movies[title];
+                    html += `
+                        <div class="movie">
+                            <div class="movie-title">${safeDisplayText(title)}</div>
+                            <div class="showtimes">
+                    `;
+                    
+                    // Sort showtimes chronologically
+                    const sortedShowings = showings.sort((a, b) => a.time.localeCompare(b.time));
+                    sortedShowings.forEach(showing => {
+                        const timeRange = calculateTimeRange(showing.time, showing.runtime);
+                        html += `<span class="showtime">${escapeHtml(timeRange)}</span>`;
+                    });
+                    
+                    html += `
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += `</div>`;
+            });
+
+            content.innerHTML = html;
+        }
+
+        function formatDate(dateString) {
+            try {
+                const date = new Date(dateString);
+                return date.toLocaleDateString('en-GB', { 
+                    weekday: 'short', 
+                    day: 'numeric', 
+                    month: 'short' 
+                });
+            } catch (e) {
+                return dateString;
+            }
+        }
+
+        function generateOptimalSchedules(movies) {
+            const allSchedules = [];
+            
+            // Convert movies to showings array with calculated end times
+            const allShowings = [];
+            Object.keys(movies).forEach(title => {
+                movies[title].forEach(showing => {
+                    const endTime = calculateEndTime(showing.time, showing.runtime);
+                    if (endTime) {
+                        allShowings.push({
+                            title: title,
+                            startTime: showing.time,
+                            endTime: endTime,
+                            runtime: showing.runtime,
+                            startMinutes: timeToMinutes(showing.time),
+                            endMinutes: timeToMinutes(endTime)
+                        });
+                    }
+                });
+            });
+            
+            // Generate 2-movie combinations
+            for (let i = 0; i < allShowings.length; i++) {
+                for (let j = 0; j < allShowings.length; j++) {
+                    if (i !== j && allShowings[i].title !== allShowings[j].title) {
+                        const movie1 = allShowings[i];
+                        const movie2 = allShowings[j];
+                        
+                        // Check if movies don't overlap (movie1 ends before movie2 starts)
+                        const gap = movie2.startMinutes - movie1.endMinutes;
+                        if (gap >= 0 && gap <= 180) { // Max 3 hours gap
+                            const schedule = {
+                                movies: [movie1.title, movie2.title],
+                                showings: [movie1, movie2],
+                                totalGap: formatDuration(gap),
+                                totalDuration: formatDuration(movie2.endMinutes - movie1.startMinutes),
+                                timeInfo: `${movie1.startTime}-${movie1.endTime}, then ${movie2.startTime}-${movie2.endTime}`,
+                                gapMinutes: gap,
+                                startMinutes: movie1.startMinutes
+                            };
+                            allSchedules.push(schedule);
+                        }
+                    }
+                }
+            }
+            
+            // Generate 3-movie combinations from existing 2-movie ones
+            allSchedules.forEach(twoMovieSchedule => {
+                allShowings.forEach(showing => {
+                    if (!twoMovieSchedule.movies.includes(showing.title)) {
+                        const lastMovie = twoMovieSchedule.showings[twoMovieSchedule.showings.length - 1];
+                        const gap = showing.startMinutes - lastMovie.endMinutes;
+                        
+                        if (gap >= 0 && gap <= 120) { // Max 2 hours gap for 3rd movie
+                            const schedule = {
+                                movies: [...twoMovieSchedule.movies, showing.title],
+                                showings: [...twoMovieSchedule.showings, showing],
+                                totalGap: formatDuration(twoMovieSchedule.gapMinutes + gap),
+                                totalDuration: formatDuration(showing.endMinutes - twoMovieSchedule.showings[0].startMinutes),
+                                timeInfo: `${twoMovieSchedule.timeInfo.split(', then ')[0]}, then ${twoMovieSchedule.timeInfo.split(', then ')[1]}, then ${showing.startTime}-${showing.endTime}`,
+                                gapMinutes: twoMovieSchedule.gapMinutes + gap,
+                                startMinutes: twoMovieSchedule.startMinutes
+                            };
+                            allSchedules.push(schedule);
+                        }
+                    }
+                });
+            });
+            
+            // Sort by total gap time (minimize downtime) then by start time
+            return allSchedules
+                .sort((a, b) => {
+                    if (a.gapMinutes !== b.gapMinutes) {
+                        return a.gapMinutes - b.gapMinutes;
+                    }
+                    return a.startMinutes - b.startMinutes;
+                })
+                .slice(0, 10); // Top 10 suggestions
+        }
+        
+        function calculateEndTime(startTime, runtime) {
+            try {
+                const timeStr = startTime.replace('.', ':');
+                const [hours, minutes] = timeStr.split(':').map(Number);
+                
+                if (isNaN(hours) || isNaN(minutes)) return null;
+                
+                let runtimeMinutes = 0;
+                if (runtime && runtime.toString().trim()) {
+                    const runtimeStr = runtime.toString().toLowerCase();
+                    
+                    // Check for "1h 41m" format
+                    const hourMinMatch = runtimeStr.match(/(\d+)h\s*(\d+)m/);
+                    if (hourMinMatch) {
+                        const hours = parseInt(hourMinMatch[1]);
+                        const minutes = parseInt(hourMinMatch[2]);
+                        runtimeMinutes = hours * 60 + minutes;
+                    } else {
+                        // Check for just hours "2h" format
+                        const hourMatch = runtimeStr.match(/(\d+)h/);
+                        if (hourMatch) {
+                            runtimeMinutes = parseInt(hourMatch[1]) * 60;
+                        } else {
+                            // Check for just minutes "120m" or "120 mins" format
+                            const minMatch = runtimeStr.match(/(\d+)\s*m/);
+                            if (minMatch) {
+                                runtimeMinutes = parseInt(minMatch[1]);
+                            }
+                        }
+                    }
+                    
+                    // Add 20 minutes for trailers/adverts
+                    if (runtimeMinutes > 0) {
+                        runtimeMinutes += 20;
+                    }
+                }
+                
+                if (runtimeMinutes === 0) return null;
+                
+                const totalMinutes = hours * 60 + minutes + runtimeMinutes;
+                const endHours = Math.floor(totalMinutes / 60) % 24;
+                const endMins = totalMinutes % 60;
+                
+                return `${endHours.toString().padStart(2, '0')}:${endMins.toString().padStart(2, '0')}`;
+            } catch (e) {
+                return null;
+            }
+        }
+        
+        function timeToMinutes(timeStr) {
+            const cleanTime = timeStr.replace('.', ':');
+            const [hours, minutes] = cleanTime.split(':').map(Number);
+            return hours * 60 + minutes;
+        }
+        
+        function formatDuration(minutes) {
+            const hours = Math.floor(minutes / 60);
+            const mins = minutes % 60;
+            if (hours === 0) return `${mins}m`;
+            if (mins === 0) return `${hours}h`;
+            return `${hours}h ${mins}m`;
+        }
+
+        function generateWeekSummary(showings) {
+            // Get unique films with their details
+            const uniqueFilms = {};
+            
+            showings.forEach(showing => {
+                const title = showing.title;
+                if (!uniqueFilms[title]) {
+                    uniqueFilms[title] = {
+                        title: title,
+                        cert: showing.cert || '',
+                        runtime: showing.runtime || '',
+                        format: showing.format || '',
+                        showCount: 0
+                    };
+                }
+                uniqueFilms[title].showCount++;
+            });
+            
+            // Convert to array and sort alphabetically
+            const filmsArray = Object.values(uniqueFilms).sort((a, b) => 
+                a.title.localeCompare(b.title)
+            );
+            
+            // Generate HTML
+            let html = '';
+            filmsArray.forEach(film => {
+                html += `
+                    <div class="film-item">
+                        ${safeDisplayText(film.title)}
+                    </div>
+                `;
+            });
+            
+            // Update the summary section
+            document.getElementById('filmsGrid').innerHTML = html;
+            document.getElementById('weekSummary').style.display = 'block';
+            
+            // Update header with film count
+            const filmCount = filmsArray.length;
+            const summaryHeader = document.querySelector('.week-summary h3');
+            summaryHeader.textContent = `🎭 ${filmCount} Films This Week`;
+        }
+
+        function calculateTimeRange(startTime, runtime) {
+            try {
+                // Parse start time (handle both "11.15" and "11:15" formats)
+                const timeStr = startTime.replace('.', ':');
+                const [hours, minutes] = timeStr.split(':').map(Number);
+                
+                if (isNaN(hours) || isNaN(minutes)) {
+                    return startTime; // Return original if parsing fails
+                }
+                
+                // Parse runtime (handle formats like "1h 41m", "120 mins", "90m")
+                let runtimeMinutes = 0;
+                if (runtime && runtime.toString().trim()) {
+                    const runtimeStr = runtime.toString().toLowerCase();
+                    
+                    // Check for "1h 41m" format
+                    const hourMinMatch = runtimeStr.match(/(\d+)h\s*(\d+)m/);
+                    if (hourMinMatch) {
+                        const hours = parseInt(hourMinMatch[1]);
+                        const minutes = parseInt(hourMinMatch[2]);
+                        runtimeMinutes = hours * 60 + minutes;
+                    } else {
+                        // Check for just hours "2h" format
+                        const hourMatch = runtimeStr.match(/(\d+)h/);
+                        if (hourMatch) {
+                            runtimeMinutes = parseInt(hourMatch[1]) * 60;
+                        } else {
+                            // Check for just minutes "120m" or "120 mins" format
+                            const minMatch = runtimeStr.match(/(\d+)\s*m/);
+                            if (minMatch) {
+                                runtimeMinutes = parseInt(minMatch[1]);
+                            }
+                        }
+                    }
+                    
+                    // Add 20 minutes for trailers/adverts
+                    if (runtimeMinutes > 0) {
+                        runtimeMinutes += 20;
+                    }
+                }
+                
+                // If no runtime, just return start time
+                if (runtimeMinutes === 0) {
+                    return startTime;
+                }
+                
+                // Calculate end time
+                const startDate = new Date();
+                startDate.setHours(hours, minutes, 0, 0);
+                
+                const endDate = new Date(startDate.getTime() + runtimeMinutes * 60000);
+                const endHours = endDate.getHours().toString().padStart(2, '0');
+                const endMinutes = endDate.getMinutes().toString().padStart(2, '0');
+                
+                return `${startTime} - ${endHours}:${endMinutes}`;
+                
+            } catch (e) {
+                return startTime; // Return original time if any error occurs
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function decodeHtmlEntities(text) {
+            const div = document.createElement('div');
+            div.innerHTML = text;
+            return div.textContent || div.innerText || '';
+        }
+
+        function safeDisplayText(text) {
+            // First decode any HTML entities, then escape for safety
+            const decoded = decodeHtmlEntities(text);
+            return escapeHtml(decoded);
+        }
+
+        // Load cinema times when page loads
+        document.addEventListener('DOMContentLoaded', loadCinemaTimes);
+    </script>
+</body>
+</html>

@@ -37,11 +37,8 @@ def extract_title_and_tags(title):
             })
             clean_title = re.sub(pattern, '', clean_title, flags=re.IGNORECASE).strip()
     
-    # Handle a few special cases that aren't in parentheses
-    # but are clearly format indicators, not part of the core title
-    if clean_title.startswith('NT Live: '):
-        tags.append({'type': 'format', 'text': 'NT Live'})
-        clean_title = clean_title.replace('NT Live: ', '').strip()
+    # NT Live titles should be kept as-is - they're part of the actual title
+    # Don't remove "NT Live:" as it's the official title format for these broadcasts
     
     # Clean up any remaining extra whitespace
     clean_title = re.sub(r'\s+', ' ', clean_title).strip()

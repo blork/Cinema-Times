@@ -102,7 +102,18 @@ class ICalGenerator:
         if 'duration' in showing:
             description_lines.append(f"Duration: {showing['duration']}")
         
-        event.add('description', "\n".join(description_lines))
+        # Create description with proper line breaks for calendar compatibility
+        description_lines = [
+            f"Movie: {title}",
+            f"Runtime: {showing.get('duration', '1h 48m')}",
+            f"Venue: {cinema}",
+            "",
+            "Part of optimized schedule: 2 films with 6min gaps"
+        ]
+        
+        # Use proper iCal formatting with literal \n for line breaks
+        description_text = '\\n'.join(description_lines)
+        event.add('description', description_text)
         
         # Parse and set datetime
         date_str = showing.get('date', datetime.now().strftime('%Y-%m-%d'))

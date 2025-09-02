@@ -67,27 +67,34 @@ jobs:
           # Count new films
           NEW_FILM_COUNT=$(grep -c "^•" new-films.txt || echo "0")
           
-          # Create a concise message for mobile
-          FILM_LIST=$(grep "^•" new-films.txt | head -3 | sed 's/^• //' || echo "")
+          # Create message with proper newlines for Pushover
+          echo "🎬 ${NEW_FILM_COUNT} new films at The Light Cinema!" > message.txt
+          echo "" >> message.txt
+          
+          # Add first 3 films to message
+          grep "^•" new-films.txt | head -3 | sed 's/^• //' >> message.txt
+          
+          # Add "and X more" if there are more than 3 films
           if [ "$NEW_FILM_COUNT" -gt 3 ]; then
-            MESSAGE="🎬 ${NEW_FILM_COUNT} new films at The Light Cinema!\n\n${FILM_LIST}\n...and $((NEW_FILM_COUNT - 3)) more"
-          else
-            MESSAGE="🎬 ${NEW_FILM_COUNT} new films at The Light Cinema!\n\n${FILM_LIST}"
+            echo "" >> message.txt
+            echo "...and $((NEW_FILM_COUNT - 3)) more" >> message.txt
           fi
           
-          # Send to Pushover
+          # Send to Pushover using file for message body
           curl -s \
             --form-string "token=${{ secrets.PUSHOVER_TOKEN }}" \
             --form-string "user=${{ secrets.PUSHOVER_USER }}" \
             --form-string "title=🎬 New Cinema Films" \
-            --form-string "message=${MESSAGE}" \
+            --form "message=<message.txt" \
             --form-string "url=https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/" \
             --form-string "url_title=View Showtimes" \
             --form-string "priority=0" \
             --form-string "sound=pushover" \
             https://api.pushover.net/1/messages.json
           
-          echo "📱 Pushover notification sent for ${NEW_FILM_COUNT} new films"
+          # Show what we sent
+          echo "📱 Pushover notification sent:"
+          cat message.txt
         else
           echo "📱 No new films to notify about"
         fi

@@ -1819,11 +1819,28 @@
                 'VERSION:2.0',
                 'PRODID:-//Cinema Times//Cinema Times//EN',
                 'CALSCALE:GREGORIAN',
-                'METHOD:PUBLISH'
+                'METHOD:PUBLISH',
+                'BEGIN:VTIMEZONE',
+                'TZID:Europe/London',
+                'BEGIN:DAYLIGHT',
+                'DTSTART:19810329T010000',
+                'RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU',
+                'TZNAME:BST',
+                'TZOFFSETFROM:+0000',
+                'TZOFFSETTO:+0100',
+                'END:DAYLIGHT',
+                'BEGIN:STANDARD',
+                'DTSTART:19961027T020000',
+                'RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU',
+                'TZNAME:GMT',
+                'TZOFFSETFROM:+0100',
+                'TZOFFSETTO:+0000',
+                'END:STANDARD',
+                'END:VTIMEZONE'
             ];
             
             events.forEach((event, index) => {
-                // Convert to local date format (no Z suffix for local time)
+                // Use timezone-aware format for better calendar compatibility
                 const startStr = formatDateTimeForICal(event.start);
                 const endStr = formatDateTimeForICal(event.end);
                 const uid = `${event.title.replace(/[^a-zA-Z0-9]/g, '')}-${startStr}@cinematimes.local`;
@@ -1833,15 +1850,20 @@
                 const description = event.description.replace(/[,;\\]/g, '\\$&').replace(/\n/g, '\\n');
                 const location = event.location.replace(/[,;\\]/g, '\\$&').replace(/\n/g, '\\n');
                 
+                // Add structured location for better mapping support
+                const structuredLocationLine = 'X-APPLE-STRUCTURED-LOCATION;VALUE=URI;X-ADDRESS="The Moor, Sheffield, S1 4PF, England";X-TITLE=The Light Cinema Sheffield:geo:53.377453,-1.473648';
+
                 ical = ical.concat([
                     'BEGIN:VEVENT',
                     `UID:${uid}`,
                     `DTSTAMP:${timestamp}`,
-                    `DTSTART:${startStr}`,
-                    `DTEND:${endStr}`,
+                    `DTSTART;TZID=Europe/London:${startStr}`,
+                    `DTEND;TZID=Europe/London:${endStr}`,
                     `SUMMARY:${summary}`,
                     `DESCRIPTION:${description}`,
                     `LOCATION:${location}`,
+                    structuredLocationLine,
+                    'TRANSP:OPAQUE',
                     'END:VEVENT'
                 ]);
             });

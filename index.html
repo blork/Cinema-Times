@@ -210,6 +210,99 @@
             cursor: pointer;
             flex-grow: 1;
         }
+        .rt-score {
+            font-size: 12px;
+            font-weight: bold;
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin-left: 8px;
+            min-width: 30px;
+            text-align: center;
+        }
+        .rt-score.fresh {
+            background: #00ce7c;
+            color: white;
+        }
+        .rt-score.rotten {
+            background: #ff0000;
+            color: white;
+        }
+        .rt-score.unknown {
+            background: #ccc;
+            color: #666;
+        }
+        .composite-score {
+            font-size: 12px;
+            font-weight: bold;
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin-left: 8px;
+            min-width: 30px;
+            text-align: center;
+        }
+        .composite-score.excellent {
+            background: #00ce7c;
+            color: white;
+        }
+        .composite-score.good {
+            background: #ffc107;
+            color: #212529;
+        }
+        .composite-score.fair {
+            background: #fd7e14;
+            color: white;
+        }
+        .composite-score.poor {
+            background: #dc3545;
+            color: white;
+        }
+        .composite-score.unknown {
+            background: #ccc;
+            color: #666;
+        }
+        .score-tooltip {
+            position: relative;
+        }
+        .score-tooltip:hover::after {
+            content: attr(data-scores);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            white-space: nowrap;
+            z-index: 1000;
+            pointer-events: none;
+        }
+        .title-tag {
+            font-size: 11px;
+            background: #f0f0f0;
+            color: #666;
+            padding: 2px 5px;
+            border-radius: 2px;
+            margin-left: 6px;
+            font-weight: normal;
+        }
+        .title-tag.anniversary {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .title-tag.remaster {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        .title-tag.language {
+            background: #e2e3e5;
+            color: #383d41;
+        }
+        .title-tag.collection {
+            background: #d4edda;
+            color: #155724;
+        }
         .day-selection {
             display: flex;
             flex-wrap: wrap;
@@ -329,6 +422,14 @@
         
         <div class="scheduler-section">
             <h4>📽️ Select Films</h4>
+            <div style="font-size: 12px; color: #666; margin-bottom: 10px;">
+                📊 <span style="background: #00ce7c; color: white; padding: 1px 4px; border-radius: 2px;">80+</span> Excellent • 
+                <span style="background: #ffc107; color: #212529; padding: 1px 4px; border-radius: 2px;">65+</span> Good • 
+                <span style="background: #fd7e14; color: white; padding: 1px 4px; border-radius: 2px;">50+</span> Fair • 
+                <span style="background: #dc3545; color: white; padding: 1px 4px; border-radius: 2px;">&lt;50</span> Poor • 
+                <span style="background: #ccc; color: #666; padding: 1px 4px; border-radius: 2px;">—</span> No Score
+                <br><em style="font-size: 11px;">Composite scores from RT/Metacritic/IMDb • Hover for breakdown</em>
+            </div>
             <div class="film-selection" id="filmSelection">
                 <!-- Film checkboxes will be populated here -->
             </div>
@@ -459,9 +560,17 @@
                 const sortedMovies = Object.keys(dateInfo.movies).sort();
                 sortedMovies.forEach(title => {
                     const showings = dateInfo.movies[title];
+                    
+                    // Get tags from first showing of this title
+                    const firstShowing = showings[0];
+                    const titleTags = firstShowing.title_tags || [];
+                    const tagsHtml = titleTags.map(tag => 
+                        `<span class="title-tag ${tag.type}">${safeDisplayText(tag.text)}</span>`
+                    ).join('');
+                    
                     html += `
                         <div class="movie">
-                            <div class="movie-title">${safeDisplayText(title)}</div>
+                            <div class="movie-title">${safeDisplayText(title)}${tagsHtml}</div>
                             <div class="showtimes">
                     `;
                     
@@ -810,18 +919,75 @@
         function populateScheduler(showings) {
             allShowings = showings;
             
-            // Get unique films and dates
-            const uniqueFilms = [...new Set(showings.map(s => s.title))].sort();
+            // Get unique films with RT scores and sort by critics score (highest first)
+            const uniqueFilmsData = [];
+            const seenTitles = new Set();
+            
+            showings.forEach(showing => {
+                if (!seenTitles.has(showing.title)) {
+                    seenTitles.add(showing.title);
+                    uniqueFilmsData.push({
+                        title: showing.title,
+                        rt_critics_score: showing.rt_critics_score || 0,
+                        metacritic_score: showing.metacritic_score || 0,
+                        imdb_score: showing.imdb_score || 0,
+                        composite_score: showing.composite_score || 0,
+                        available_scores: showing.available_scores || [],
+                        title_tags: showing.title_tags || []
+                    });
+                }
+            });
+            
+            // Sort by composite score (highest first), then by title
+            uniqueFilmsData.sort((a, b) => {
+                if (a.composite_score !== b.composite_score) {
+                    return b.composite_score - a.composite_score;
+                }
+                return a.title.localeCompare(b.title);
+            });
+            
             const uniqueDates = [...new Set(showings.map(s => s.date))].sort();
 
-            // Populate film selection
+            // Populate film selection with composite scores and tags
             const filmSelection = document.getElementById('filmSelection');
-            filmSelection.innerHTML = uniqueFilms.map((film, index) => `
-                <div class="film-checkbox" onclick="toggleFilmCheckbox(${index})">
-                    <input type="checkbox" id="film-${index}" onchange="updateFilmSelection()">
-                    <label for="film-${index}">${safeDisplayText(film)}</label>
-                </div>
-            `).join('');
+            filmSelection.innerHTML = uniqueFilmsData.map((filmData, index) => {
+                // Determine score class and display
+                let scoreClass, scoreDisplay, tooltipData;
+                
+                if (filmData.composite_score > 0) {
+                    const score = filmData.composite_score;
+                    scoreClass = score >= 80 ? 'excellent' : 
+                                score >= 65 ? 'good' : 
+                                score >= 50 ? 'fair' : 'poor';
+                    scoreDisplay = `${score}`;
+                    
+                    // Create tooltip with breakdown
+                    const scoreBreakdown = [];
+                    if (filmData.rt_critics_score > 0) scoreBreakdown.push(`RT: ${filmData.rt_critics_score}%`);
+                    if (filmData.metacritic_score > 0) scoreBreakdown.push(`MC: ${filmData.metacritic_score}`);
+                    if (filmData.imdb_score > 0) scoreBreakdown.push(`IMDb: ${filmData.imdb_score}`);
+                    tooltipData = scoreBreakdown.join(', ');
+                } else {
+                    scoreClass = 'unknown';
+                    scoreDisplay = '—';
+                    tooltipData = 'No scores available';
+                }
+                
+                // Generate tags HTML
+                const tagsHtml = filmData.title_tags.map(tag => 
+                    `<span class="title-tag ${tag.type}">${safeDisplayText(tag.text)}</span>`
+                ).join('');
+                
+                return `
+                    <div class="film-checkbox" onclick="toggleFilmCheckbox(${index})">
+                        <input type="checkbox" id="film-${index}" onchange="updateFilmSelection()">
+                        <label for="film-${index}">
+                            ${safeDisplayText(filmData.title)}${tagsHtml}
+                        </label>
+                        <span class="composite-score ${scoreClass} score-tooltip" data-scores="${tooltipData}">${scoreDisplay}</span>
+                    </div>
+                `;
+            }).join('');
 
             // Populate day selection
             const daySelection = document.getElementById('daySelection');
@@ -901,10 +1067,35 @@
             console.log('Selected film indexes:', selectedFilmIndexes);
             console.log('Selected day indexes:', selectedDayIndexes);
 
-            const uniqueFilms = [...new Set(allShowings.map(s => s.title))].sort();
+            // Get unique films data (sorted by RT score)
+            const uniqueFilmsData = [];
+            const seenTitles = new Set();
+            
+            allShowings.forEach(showing => {
+                if (!seenTitles.has(showing.title)) {
+                    seenTitles.add(showing.title);
+                    uniqueFilmsData.push({
+                        title: showing.title,
+                        rt_critics_score: showing.rt_critics_score || 0,
+                        metacritic_score: showing.metacritic_score || 0,
+                        imdb_score: showing.imdb_score || 0,
+                        composite_score: showing.composite_score || 0,
+                        available_scores: showing.available_scores || [],
+                        title_tags: showing.title_tags || []
+                    });
+                }
+            });
+            
+            uniqueFilmsData.sort((a, b) => {
+                if (a.rt_critics_score !== b.rt_critics_score) {
+                    return b.rt_critics_score - a.rt_critics_score;
+                }
+                return a.title.localeCompare(b.title);
+            });
+            
             const uniqueDates = [...new Set(allShowings.map(s => s.date))].sort();
             
-            const selectedFilms = selectedFilmIndexes.map(i => uniqueFilms[i]);
+            const selectedFilms = selectedFilmIndexes.map(i => uniqueFilmsData[i].title);
             const selectedDates = selectedDayIndexes.map(i => uniqueDates[i]);
 
             console.log('Selected films:', selectedFilms);
@@ -1235,10 +1426,35 @@
                 return;
             }
 
-            const uniqueFilms = [...new Set(allShowings.map(s => s.title))].sort();
+            // Get unique films data (sorted by RT score)  
+            const uniqueFilmsData = [];
+            const seenTitles = new Set();
+            
+            allShowings.forEach(showing => {
+                if (!seenTitles.has(showing.title)) {
+                    seenTitles.add(showing.title);
+                    uniqueFilmsData.push({
+                        title: showing.title,
+                        rt_critics_score: showing.rt_critics_score || 0,
+                        metacritic_score: showing.metacritic_score || 0,
+                        imdb_score: showing.imdb_score || 0,
+                        composite_score: showing.composite_score || 0,
+                        available_scores: showing.available_scores || [],
+                        title_tags: showing.title_tags || []
+                    });
+                }
+            });
+            
+            uniqueFilmsData.sort((a, b) => {
+                if (a.rt_critics_score !== b.rt_critics_score) {
+                    return b.rt_critics_score - a.rt_critics_score;
+                }
+                return a.title.localeCompare(b.title);
+            });
+            
             const uniqueDates = [...new Set(allShowings.map(s => s.date))].sort();
             
-            const selectedFilms = selectedFilmIndexes.map(i => uniqueFilms[i]);
+            const selectedFilms = selectedFilmIndexes.map(i => uniqueFilmsData[i].title);
             const selectedDates = selectedDayIndexes.map(i => uniqueDates[i]);
 
             // Filter the showings based on selections
@@ -1331,9 +1547,17 @@
                 
                 sortedTitles.forEach(title => {
                     const showings = dateGroup.movies[title];
+                    
+                    // Get tags from first showing of this title
+                    const firstShowing = showings[0];
+                    const titleTags = firstShowing.title_tags || [];
+                    const tagsHtml = titleTags.map(tag => 
+                        `<span class="title-tag ${tag.type}">${safeDisplayText(tag.text)}</span>`
+                    ).join('');
+                    
                     html += `
                         <div class="movie">
-                            <div class="movie-title">${safeDisplayText(title)}</div>
+                            <div class="movie-title">${safeDisplayText(title)}${tagsHtml}</div>
                             <div class="showtimes">
                     `;
                     
@@ -1366,10 +1590,10 @@
             const endDateTime = calculateEndDateTime(startDateTime, runtime);
             
             const event = {
-                title: `${title}${cert ? ` (${cert})` : ''}`,
+                title: `Cinema: ${title}${cert ? ` (${cert})` : ''}`,
                 start: startDateTime,
                 end: endDateTime,
-                location: 'The Light Cinema Sheffield',
+                location: 'The Light Cinema Sheffield, The Moor, Sheffield S1 4PF, UK',
                 description: `Movie: ${title}${runtime ? `\\nRuntime: ${runtime}` : ''}${cert ? `\\nCertificate: ${cert}` : ''}\\nVenue: The Light Cinema Sheffield`
             };
             
@@ -1385,10 +1609,10 @@
                 const endDateTime = calculateEndDateTime(startDateTime, film.runtime);
                 
                 return {
-                    title: film.title,
+                    title: `Cinema: ${film.title}`,
                     start: startDateTime,
                     end: endDateTime,
-                    location: 'The Light Cinema Sheffield',
+                    location: 'The Light Cinema Sheffield, The Moor, Sheffield S1 4PF, UK',
                     description: `Movie: ${film.title}${film.runtime ? `\\nRuntime: ${film.runtime}` : ''}\\nVenue: The Light Cinema Sheffield\\n\\nPart of optimized schedule: ${schedule.films.length} films with ${schedule.downtime}min gaps`
                 };
             });
@@ -1664,8 +1888,41 @@
             return `${year}${month}${day}T${hours}${minutes}${seconds}`;
         }
 
+        // Debug function to check data
+        function debugScores() {
+            console.log('=== DEBUG: Checking movie data ===');
+            if (window.allShowings && window.allShowings.length > 0) {
+                const sample = window.allShowings[0];
+                console.log('Sample showing:', sample);
+                console.log('Available fields:', Object.keys(sample));
+                
+                // Check unique titles with scores
+                const uniqueTitles = {};
+                window.allShowings.forEach(showing => {
+                    const title = showing.title;
+                    if (!uniqueTitles[title]) {
+                        uniqueTitles[title] = {
+                            composite_score: showing.composite_score || 0,
+                            rt_critics_score: showing.rt_critics_score || 0,
+                            metacritic_score: showing.metacritic_score || 0,
+                            imdb_score: showing.imdb_score || 0
+                        };
+                    }
+                });
+                
+                const withScores = Object.entries(uniqueTitles).filter(([_, scores]) => scores.composite_score > 0);
+                console.log(`Movies with scores: ${withScores.length}`);
+                console.log('Sample scored movies:', withScores.slice(0, 3));
+            } else {
+                console.log('No allShowings data available');
+            }
+        }
+
         // Load cinema times when page loads
         document.addEventListener('DOMContentLoaded', loadCinemaTimes);
+        
+        // Auto-debug after a delay
+        setTimeout(debugScores, 2000);
     </script>
 </body>
 </html>

@@ -11,6 +11,8 @@ from datetime import datetime, timedelta
 import re
 from typing import List, Dict, Any
 import sys
+import os
+import time
 
 
 class CinemaScraper:
@@ -509,19 +511,189 @@ class CinemaScraper:
         print(f"Saved {len(showings)} showings to {filename}")
 
 
+def clean_movie_titles(showings: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Clean movie titles by removing parentheticals and adding tags"""
+    try:
+        from clean_titles import extract_title_and_tags
+    except ImportError:
+        print("⚠️  Title cleaner not available - skipping title cleaning")
+        return showings
+    
+    print("🧹 Cleaning movie titles...")
+    
+    cleaned_count = 0
+    for showing in showings:
+        original_title = showing.get('title', '')
+        if original_title:
+            clean_title, tags = extract_title_and_tags(original_title)
+            if clean_title != original_title:
+                showing['title'] = clean_title
+                if tags:
+                    showing['title_tags'] = tags
+                cleaned_count += 1
+    
+    if cleaned_count > 0:
+        print(f"✅ Cleaned {cleaned_count} movie titles")
+    
+    return showings
+
+
+def fetch_and_add_rt_scores(showings: List[Dict[str, Any]], api_key: str = None) -> List[Dict[str, Any]]:
+    """Fetch RT/OMDb scores and add them to showings data"""
+    try:
+        # Import the OMDb fetcher
+        from fetch_omdb_scores import OMDbFetcher
+    except ImportError:
+        print("⚠️  OMDb score fetcher not available - skipping score fetching")
+        return showings
+    
+    # Get API key from environment or parameter
+    if not api_key:
+        api_key = os.environ.get('OMDB_API_KEY')
+    
+    if not api_key:
+        print("⚠️  No OMDb API key found - skipping score fetching")
+        print("   Set OMDB_API_KEY environment variable or pass --omdb-key parameter")
+        return showings
+    
+    print(f"🎬 Fetching RT/OMDb scores with API key: {api_key[:8]}...")
+    
+    fetcher = OMDbFetcher(api_key)
+    
+    # Get unique movie titles
+    unique_titles = set()
+    for showing in showings:
+        title = showing.get('title', '')
+        if title:
+            unique_titles.add(title)
+    
+    unique_titles.discard('')
+    unique_titles = sorted(unique_titles)
+    
+    print(f"📊 Found {len(unique_titles)} unique movies to score")
+    
+    # Fetch scores for each unique title
+    rt_scores = {}
+    processed = 0
+    
+    for title in unique_titles:
+        print(f"[{processed + 1}/{len(unique_titles)}] {title}")
+        
+        movie_data = fetcher.fetch_movie_data(title)
+        
+        if movie_data:
+            rt_scores[title] = movie_data
+        else:
+            # Set default values
+            rt_scores[title] = {
+                'rt_critics_score': 0,
+                'metacritic_score': 0,
+                'imdb_score': 0,
+                'composite_score': 0,
+                'available_scores': [],
+                'imdb_rating': 'N/A',
+                'year': '',
+                'omdb_title': ''
+            }
+        
+        processed += 1
+        
+        # Be respectful - delay between requests
+        if processed < len(unique_titles):
+            time.sleep(1)
+    
+    # Update all showings with scores
+    updated_count = 0
+    for showing in showings:
+        title = showing.get('title', '')
+        if title in rt_scores:
+            score_data = rt_scores[title]
+            showing['rt_critics_score'] = score_data.get('rt_critics_score', 0)
+            showing['metacritic_score'] = score_data.get('metacritic_score', 0)
+            showing['imdb_score'] = score_data.get('imdb_score', 0)
+            showing['composite_score'] = score_data.get('composite_score', 0)
+            showing['available_scores'] = score_data.get('available_scores', [])
+            showing['imdb_rating'] = score_data.get('imdb_rating', 'N/A')
+            showing['omdb_title'] = score_data.get('omdb_title', '')
+            showing['omdb_year'] = score_data.get('year', '')
+            updated_count += 1
+    
+    scored_movies = sum(1 for scores in rt_scores.values() if scores.get('composite_score', 0) > 0)
+    print(f"✅ Updated {updated_count} showings with scores")
+    print(f"📈 Found scores for {scored_movies}/{len(unique_titles)} movies")
+    
+    return showings
+
+
 def main():
     # Default to The Light Cinema Sheffield
     cinema_url = "https://sheffield.thelight.co.uk/cinema/guide"
     cinema_name = "The Light Cinema Sheffield"
+    omdb_api_key = None
     
-    if len(sys.argv) > 1:
-        cinema_url = sys.argv[1]
-    if len(sys.argv) > 2:
-        cinema_name = sys.argv[2]
+    # Parse command line arguments
+    i = 1
+    while i < len(sys.argv):
+        if sys.argv[i] in ['-h', '--help']:
+            print("Cinema Times Scraper with RT Score Integration")
+            print()
+            print("Usage:")
+            print("  python3 scraper.py [URL] [CINEMA_NAME] [OPTIONS]")
+            print()
+            print("Options:")
+            print("  --omdb-key KEY    OMDb API key for RT/score fetching")
+            print("  --no-scores       Skip RT score fetching entirely")
+            print("  -h, --help        Show this help message")
+            print()
+            print("Environment Variables:")
+            print("  OMDB_API_KEY      OMDb API key (alternative to --omdb-key)")
+            print()
+            print("Examples:")
+            print("  python3 scraper.py")
+            print("  python3 scraper.py --omdb-key your_api_key")
+            print("  python3 scraper.py --no-scores")
+            print("  export OMDB_API_KEY=your_key && python3 scraper.py")
+            sys.exit(0)
+        elif sys.argv[i] == '--omdb-key' and i + 1 < len(sys.argv):
+            omdb_api_key = sys.argv[i + 1]
+            i += 2
+        elif sys.argv[i] == '--no-scores':
+            omdb_api_key = 'skip'  # Special value to skip scoring
+            i += 1
+        elif i == 1:  # First non-flag argument is URL
+            cinema_url = sys.argv[i]
+            i += 1
+        elif i == 2:  # Second non-flag argument is name
+            cinema_name = sys.argv[i]
+            i += 1
+        else:
+            i += 1
+    
+    print(f"🎭 Scraping cinema times from: {cinema_name}")
+    print(f"🔗 URL: {cinema_url}")
     
     scraper = CinemaScraper(cinema_url, cinema_name)
     showings = scraper.scrape_times()
+    
+    if not showings:
+        print("❌ No showings found - exiting")
+        sys.exit(1)
+    
+    # Clean movie titles first
+    showings = clean_movie_titles(showings)
+    
+    # Add RT scores unless explicitly skipped
+    if omdb_api_key != 'skip':
+        showings = fetch_and_add_rt_scores(showings, omdb_api_key)
+    
     scraper.save_json(showings)
+    
+    print(f"🎉 Scraping complete! Found {len(showings)} total showings")
+    
+    # Show some statistics
+    unique_movies = len(set(s.get('title', '') for s in showings))
+    scored_movies = len(set(s.get('title', '') for s in showings if s.get('composite_score', 0) > 0))
+    print(f"📊 {unique_movies} unique movies, {scored_movies} with scores")
 
 
 if __name__ == "__main__":

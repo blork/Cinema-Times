@@ -235,7 +235,7 @@ class CinemaScraper:
                             continue
                         
                         showing = {
-                            'title': title,
+                            'title': normalize_title(title),
                             'time': time_display,
                             'date': formatted_date,
                             'date_display': date_display,
@@ -486,7 +486,7 @@ class CinemaScraper:
                             seen_combinations.add(unique_key)
                             
                             showing = {
-                                'title': title,
+                                'title': normalize_title(title),
                                 'time': time_str,
                                 'date': date_info['date'],
                                 'date_display': date_info['display'],
@@ -516,6 +516,25 @@ class CinemaScraper:
         print(f"Saved {len(showings)} showings to {filename}")
 
 
+def normalize_title(title: str) -> str:
+    """Normalize title for consistent comparison across the system"""
+    if not title:
+        return ''
+    
+    # Basic normalization
+    normalized = title.strip()
+    # Remove extra whitespace
+    normalized = ' '.join(normalized.split())
+    # Decode HTML entities if any
+    try:
+        import html
+        normalized = html.unescape(normalized)
+    except:
+        pass
+    
+    return normalized
+
+
 def clean_movie_titles(showings: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Clean movie titles by removing parentheticals and adding tags"""
     try:
@@ -531,11 +550,19 @@ def clean_movie_titles(showings: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         original_title = showing.get('title', '')
         if original_title:
             clean_title, tags = extract_title_and_tags(original_title)
+            # Always normalize the final title for consistency
+            clean_title = normalize_title(clean_title)
             if clean_title != original_title:
                 showing['title'] = clean_title
                 if tags:
                     showing['title_tags'] = tags
                 cleaned_count += 1
+            else:
+                # Even if title didn't change via cleaning, normalize it
+                normalized = normalize_title(original_title)
+                if normalized != original_title:
+                    showing['title'] = normalized
+                    cleaned_count += 1
     
     if cleaned_count > 0:
         print(f"✅ Cleaned {cleaned_count} movie titles")
@@ -691,23 +718,28 @@ def main():
     if omdb_api_key != 'skip':
         showings = fetch_and_add_rt_scores(showings, omdb_api_key)
     
-    # Detect new films before saving - need to clean old titles for fair comparison
+    # Detect new films before saving - normalize all titles for consistent comparison
     old_films = set()
     try:
         import json
         with open('cinema-times.json', 'r') as f:
             old_data = json.load(f)
-            # Use titles from old data as they should already be cleaned from previous runs
-            # Since we clean titles during scraping, old data should have clean titles already
-            old_films = set(showing.get('title', '') for showing in old_data.get('showings', []))
-            old_films.discard('')  # Remove empty strings
+            # Normalize all old titles for consistent comparison
+            for showing in old_data.get('showings', []):
+                title = normalize_title(showing.get('title', ''))
+                if title:
+                    old_films.add(title)
     except (FileNotFoundError, json.JSONDecodeError):
         print("📄 No previous data found - this appears to be first run")
         old_films = set()
     
-    # Find new films (current films are already cleaned)
-    current_films = set(s.get('title', '') for s in showings)
-    current_films.discard('')  # Remove empty strings
+    # Get current films (already cleaned and normalized)
+    current_films = set()
+    for showing in showings:
+        title = normalize_title(showing.get('title', ''))
+        if title:
+            current_films.add(title)
+    
     new_films = current_films - old_films
     
     # Save the updated data

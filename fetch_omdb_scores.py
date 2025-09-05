@@ -19,14 +19,18 @@ class OMDbFetcher:
         self.session = requests.Session()
         
     def clean_title_for_search(self, title: str) -> str:
-        """Clean movie title for searching - only remove parentheticals"""
-        # Decode HTML entities
-        title = html.unescape(title)
+        """Clean movie title for searching using consistent logic"""
+        try:
+            # Use the main title cleaner first
+            from clean_titles import extract_title_and_tags
+            clean_title, _ = extract_title_and_tags(title)
+            title = clean_title
+        except ImportError:
+            # Fallback to legacy logic if clean_titles not available
+            title = html.unescape(title)
+            title = re.sub(r'\s*\([^)]*\)', '', title)
         
-        # Remove only parenthetical information (anniversary editions, language versions, etc.)
-        title = re.sub(r'\s*\([^)]*\)', '', title)
-        
-        # Handle a few special format cases
+        # Handle special format cases for better OMDb API matching
         if title.startswith('NT Live: '):
             title = title.replace('NT Live: ', '')
         

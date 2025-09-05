@@ -40,6 +40,22 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         
+    - name: Download existing cinema data for comparison
+      run: |
+        echo "📥 Downloading existing cinema-times.json from GitHub Pages..."
+        # Try to download the existing file from GitHub Pages
+        if curl -s -f "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/cinema-times.json" -o cinema-times-previous.json; then
+          echo "✅ Downloaded existing data for comparison"
+          # Move it to the expected location for the scraper to find
+          mv cinema-times-previous.json cinema-times.json
+          echo "📊 Previous data info:"
+          echo "File size: $(wc -c < cinema-times.json) bytes"
+          echo "Last updated: $(jq -r '.last_updated' cinema-times.json)"
+          echo "Number of previous films: $(jq -r '.showings | map(.title) | unique | length' cinema-times.json)"
+        else
+          echo "⚠️  No existing data found - this may be the first run or pages not deployed yet"
+        fi
+        
     - name: Run cinema scraper with RT scores
       env:
         OMDB_API_KEY: ${{ secrets.OMDB_API_KEY }}
@@ -59,30 +75,44 @@ jobs:
         echo "📬 New films notification:"
         cat new-films.txt
         
-    - name: Debug change detection issue
+    - name: Send Pushover notification for new films
+      if: ${{ hashFiles('new-films.txt') != '' }}
       run: |
-        echo "🔍 DEBUGGING: Investigating repeated notifications"
-        echo "📁 Files in workspace:"
-        ls -la
-        echo ""
-        echo "📊 Current cinema-times.json info:"
-        if [ -f cinema-times.json ]; then
-          echo "File exists, size: $(wc -c < cinema-times.json) bytes"
-          echo "Last updated: $(jq -r '.last_updated' cinema-times.json)"
-          echo "Number of showings: $(jq '.showings | length' cinema-times.json)"
-          echo "Unique films: $(jq -r '.showings | map(.title) | unique | length' cinema-times.json)"
-          echo ""
-          echo "🎬 Sample film titles from data:"
-          jq -r '.showings | map(.title) | unique | sort | .[0:5] | .[]' cinema-times.json
+        # Check if there are actually new films
+        if ! grep -q "No new films detected" new-films.txt; then
+          # Count new films
+          NEW_FILM_COUNT=$(grep -c "^•" new-films.txt || echo "0")
+          
+          # Create message with proper newlines for Pushover
+          echo "🎬 ${NEW_FILM_COUNT} new films at The Light Cinema!" > message.txt
+          echo "" >> message.txt
+          
+          # Add first 3 films to message
+          grep "^•" new-films.txt | head -3 | sed 's/^• //' >> message.txt
+          
+          # Add "and X more" if there are more than 3 films
+          if [ "$NEW_FILM_COUNT" -gt 3 ]; then
+            echo "" >> message.txt
+            echo "...and $((NEW_FILM_COUNT - 3)) more" >> message.txt
+          fi
+          
+          # Send to Pushover using file for message body
+          curl -s \
+            --form-string "token=${{ secrets.PUSHOVER_TOKEN }}" \
+            --form-string "user=${{ secrets.PUSHOVER_USER }}" \
+            --form-string "title=🎬 New Cinema Films" \
+            --form "message=<message.txt" \
+            --form-string "url=https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/" \
+            --form-string "url_title=View Showtimes" \
+            --form-string "priority=0" \
+            --form-string "sound=pushover" \
+            https://api.pushover.net/1/messages.json
+          
+          # Show what we sent
+          echo "📱 Pushover notification sent:"
+          cat message.txt
         else
-          echo "❌ cinema-times.json does not exist"
-        fi
-        echo ""
-        echo "📬 New films notification content:"
-        if [ -f new-films.txt ]; then
-          cat new-films.txt
-        else
-          echo "❌ new-films.txt does not exist"
+          echo "📱 No new films to notify about"
         fi
         
     - name: Setup Pages

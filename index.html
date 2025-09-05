@@ -884,6 +884,20 @@
             return escapeHtml(decoded);
         }
 
+        function normalizeTitle(title) {
+            // Normalize title for consistent handling (matches Python normalize_title)
+            if (!title) return '';
+            
+            // Basic normalization
+            let normalized = title.trim();
+            // Remove extra whitespace
+            normalized = normalized.replace(/\s+/g, ' ');
+            // Decode HTML entities
+            normalized = decodeHtmlEntities(normalized);
+            
+            return normalized;
+        }
+
         // Store showings data globally for scheduler
         let allShowings = [];
 
@@ -1568,12 +1582,13 @@
             const startDateTime = parseDateTime(date, time);
             const endDateTime = calculateEndDateTime(startDateTime, runtime);
             
+            const normalizedTitle = normalizeTitle(title);
             const event = {
-                title: `Cinema: ${title}${cert ? ` (${cert})` : ''}`,
+                title: `Cinema: ${normalizedTitle}${cert ? ` (${cert})` : ''}`,
                 start: startDateTime,
                 end: endDateTime,
                 location: 'The Light Cinema Sheffield, The Moor, Sheffield S1 4PF, UK',
-                description: `Movie: ${title}${runtime ? `\nRuntime: ${runtime}` : ''}${cert ? `\nCertificate: ${cert}` : ''}\nVenue: The Light Cinema Sheffield`
+                description: `Movie: ${normalizedTitle}${runtime ? `\nRuntime: ${runtime}` : ''}${cert ? `\nCertificate: ${cert}` : ''}\nVenue: The Light Cinema Sheffield`
             };
             
             showCalendarOptions(event, `Add "${title}" to Calendar`);
@@ -1586,13 +1601,14 @@
             const events = schedule.films.map(film => {
                 const startDateTime = parseDateTime(schedule.date, film.time);
                 const endDateTime = calculateEndDateTime(startDateTime, film.runtime);
+                const normalizedTitle = normalizeTitle(film.title);
                 
                 return {
-                    title: `Cinema: ${film.title}`,
+                    title: `Cinema: ${normalizedTitle}`,
                     start: startDateTime,
                     end: endDateTime,
                     location: 'The Light Cinema Sheffield, The Moor, Sheffield S1 4PF, UK',
-                    description: `Movie: ${film.title}${film.runtime ? `\nRuntime: ${film.runtime}` : ''}\nVenue: The Light Cinema Sheffield\n\nPart of optimized schedule: ${schedule.films.length} films with ${schedule.downtime}min gaps`
+                    description: `Movie: ${normalizedTitle}${film.runtime ? `\nRuntime: ${film.runtime}` : ''}\nVenue: The Light Cinema Sheffield\n\nPart of optimized schedule: ${schedule.films.length} films with ${schedule.downtime}min gaps`
                 };
             });
             

@@ -1,1 +1,5 @@
 .DS_Store
+
+# Generated data files
+cinema-times.json
+new-films.txt

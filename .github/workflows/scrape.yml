@@ -43,15 +43,13 @@ jobs:
     - name: Download existing cinema data for comparison
       run: |
         echo "📥 Downloading existing cinema-times.json from GitHub Pages..."
-        # Try to download the existing file from GitHub Pages
+        # Try to download the existing file from GitHub Pages for comparison
         if curl -s -f "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/cinema-times.json" -o cinema-times-previous.json; then
           echo "✅ Downloaded existing data for comparison"
-          # Move it to the expected location for the scraper to find
-          mv cinema-times-previous.json cinema-times.json
           echo "📊 Previous data info:"
-          echo "File size: $(wc -c < cinema-times.json) bytes"
-          echo "Last updated: $(jq -r '.last_updated' cinema-times.json)"
-          echo "Number of previous films: $(jq -r '.showings | map(.title) | unique | length' cinema-times.json)"
+          echo "File size: $(wc -c < cinema-times-previous.json) bytes"
+          echo "Last updated: $(jq -r '.last_updated' cinema-times-previous.json)"
+          echo "Number of previous films: $(jq -r '.showings | map(.title) | unique | length' cinema-times-previous.json)"
         else
           echo "⚠️  No existing data found - this may be the first run or pages not deployed yet"
         fi

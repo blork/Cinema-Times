@@ -722,15 +722,29 @@ def main():
     old_films = set()
     try:
         import json
-        with open('cinema-times.json', 'r') as f:
-            old_data = json.load(f)
+        # Check for previous data from GitHub Actions download, then fallback to local file
+        previous_files = ['cinema-times-previous.json', 'cinema-times.json']
+        old_data = None
+        
+        for filename in previous_files:
+            try:
+                with open(filename, 'r') as f:
+                    old_data = json.load(f)
+                    print(f"📄 Using {filename} for comparison")
+                    break
+            except (FileNotFoundError, json.JSONDecodeError):
+                continue
+        
+        if old_data:
             # Normalize all old titles for consistent comparison
             for showing in old_data.get('showings', []):
                 title = normalize_title(showing.get('title', ''))
                 if title:
                     old_films.add(title)
-    except (FileNotFoundError, json.JSONDecodeError):
-        print("📄 No previous data found - this appears to be first run")
+        else:
+            print("📄 No previous data found - this appears to be first run")
+    except Exception as e:
+        print(f"📄 Error reading previous data: {e}")
         old_films = set()
     
     # Get current films (already cleaned and normalized)
